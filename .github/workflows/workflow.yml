@@ -1,0 +1,140 @@
+name: Terraform Deployment
+
+on:
+  push:
+    branches:
+      - main
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCESS_KEY_ID: ${{ secrets.PRODUCT_AWS_ACCESS_KEY }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.PRODUCT_AWS_SECRET_KEY }} 
+  INFRACOST_API_KEY: ${{ secretS.INFRACOST_API_KEY }}
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps: #starting steps
+      - uses: actions/checkout@v3
+        name: Checkout source code
+
+      - uses: actions/cache@v3
+        name: Cache plugin dir
+        with:
+          path: ~/.tflint.d/plugins
+          key: ubuntu-latest-tflint-${{ hashFiles('.tflint.hcl') }}
+
+      - uses: terraform-linters/setup-tflint@v3
+        name: Setup TFLint
+        with:
+          tflint_version: v0.44.1
+
+      - name: Init TFLint
+        run: tflint --init
+      - name: Run TFLint
+        run: | 
+          tflint -f compact
+          touch output.txt
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 0.15.0
+      
+      - name: Terraform Init
+        id: init
+        run: |
+              terraform init
+        
+      - name: Terraform Plan
+        id: plan
+        run: |
+              terraform plan -no-color -out=terraform.tfplan
+              export TF_LOG=ERROR
+              terraform show -json -no-color terraform.tfplan > output.json
+              sed -n '2p' output.json > tfplan.json
+              cat tfplan.json
+        continue-on-error: false
+      
+      - name: Run tfsec, static analysis tool to detect potential security risks
+        uses: aquasecurity/tfsec-pr-commenter-action@7a44c5dcde5dfab737363e391800629e27b6376b # v1.3.1
+        with:
+          tfsec_args: --soft-fail
+          github_token: ${{ github.token }} # add environment variable later
+      
+      - name: Setup OPA
+        uses: open-policy-agent/setup-opa@v2
+        with:
+            version: latest
+
+      - name: Run OPA
+        run: |
+              cp ./tfplan.json ./OPA-REGO
+              cd OPA-REGO
+              opa build -b .
+              opa eval --bundle . 'data' --format=json | tee OPA-REGO.json 
+              rm ./tfplan.json
+              ls 
+              cd ..
+            
+      - name: Set up Infracost
+        run: |
+          sudo apt-get update
+          sudo apt-get install curl -y
+          curl https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sudo bash
+          
+      - name: Generate Cost Estimate
+        run: |
+          OUTPUT=$(readlink -f tfplan.json)
+          infracost breakdown --path $OUTPUT --format json --out-file infracost.json
+          cat infracost.json    
+          
+      - uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: mutzar
+          minimum-approvals: 1
+          issue-title: "Approve or deny"
+          issue-body: "Please approve or deny the deployment."
+          exclude-workflow-initiator-as-approver: false
+          
+      - name: Terraform Apply 
+        id: apply 
+        run: | 
+          terraform apply -auto-approve
+      
+      - name: Make Sum Run File
+        run: |
+          echo '{"run_id": "'"${{ github.run_id }}"'", "run_number": "'"${{ github.run_number }}"'", "url": "'"${{ github.server_url }}"'/'"${{ github.repository }}"'/actions/runs/'"${{ github.run_id }}"'"}' > summary.json
+          cat summary.json
+      
+      - name: Add to S3
+        run: |
+          aws s3api put-object --bucket yoran-ci-output --key $GITHUB_RUN_ID/
+          aws s3api put-object --bucket yoran-ci-output --key $GITHUB_RUN_ID/OPA-REGO.json --body $(find . -name OPA-REGO.json)
+          aws s3api put-object --bucket yoran-ci-output --key $GITHUB_RUN_ID/tfsec.json --body $(find . -name results.json)
+          aws s3api put-object --bucket yoran-ci-output --key $GITHUB_RUN_ID/summary.json --body $(find . -name summary.json)
+          aws s3api put-object --bucket yoran-ci-output --key $GITHUB_RUN_ID/tfplan.json --body $(find . -name tfplan.json)
+          aws s3api put-object --bucket yoran-ci-output --key $GITHUB_RUN_ID/infracost.json --body $(find . -name infracost.json)
+      
+      - name: Send To Slack#
+        id: slack
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          channel-id: ${{ secrets.CHANNEL_ID }}
+          slack-message: "GitHub build result: ${{job.status}}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          
+          
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
