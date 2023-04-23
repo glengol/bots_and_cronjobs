@@ -1,0 +1,5 @@
+pydantic
+slack-sdk
+slack-bolt
+requests
+python-json-logger
