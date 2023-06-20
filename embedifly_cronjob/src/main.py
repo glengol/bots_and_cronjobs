@@ -146,7 +146,7 @@ def main():
                         })
     try:
         logger.info("Making request to Elastic...")
-        es = requests.post(url=env_vars.ES_ENDPOINT, json=json.loads(query))
+        es = requests.post(url=SETTINGS.ES_ENDPOINT, json=json.loads(query))
     except (http.client.error, requests.exceptions.ConnectionError, requests.HTTPError) as HTTP_Error:
         logger.error(f"HTTP error when making POST request", extra={"Error": HTTP_Error})
         exit(0)
