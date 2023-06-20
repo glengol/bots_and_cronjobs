@@ -19,10 +19,6 @@ logger.addHandler(json_handler)
 
 # Get env vars
 env_vars = config.Vars()
-USER = env_vars.USER
-PASSWORD = env_vars.PASSWORD
-WAREHOUSE = env_vars.WAREHOUSE
-ACCOUNT = env_vars.ACCOUNT
 
 
 def json_to_list(data) -> []:
