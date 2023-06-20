@@ -51,7 +51,7 @@ def json_to_list(data) -> []:
                     times = str(datetime.datetime.now())
                     list_of_lists.append([times, index_name, integration_id, state, provider, doc_count])  # add to list
     except KeyError as err:
-        logger.error(f"Function json_to_list() failed: {err}")
+        logger.error(f"Function json_to_list() failed", extra={"Error": err})
         exit(0)
 
     return list_of_lists
@@ -65,6 +65,8 @@ def write_to_snowflake(list_of_rows) -> None:
     """
     # Establish the connection
     logger.info("Establishing connection to Snowflake...")
+    database = "FIREFLY"
+    schema = "MRR"
     try:
         connector.paramstyle = 'qmark'
         conn = connector.connect(
@@ -72,23 +74,23 @@ def write_to_snowflake(list_of_rows) -> None:
             password=PASSWORD,
             account=ACCOUNT,
             warehouse=WAREHOUSE,
-            database="FIREFLY",
-            schema="MRR"
+            database=database,
+            schema=schema
         ).cursor()
 
     except connector.errors.Error as error:
-        logger.error(msg=f"Failed to connect to snowflake. Error: {error}")
+        logger.error(msg=f"Failed to connect to snowflake.", extra={"Error": error})
         exit(0)
     # Get the cursor object
 
     cur = conn
     # Execute SQL statement to insert data
-    logger.info("Inserting to Snowflake...")
+    logger.info(f"Inserting to Snowflake {len(list_of_rows)} rows...")
     try:
         sql = "INSERT INTO EMBEDIFLY_COVERAGE (TIMESTAMP, _INDEX, INTEGRATIONID, STATE_ASSET , PROVIDER, DOC_COUNT) VALUES (?, ?, ?, ?, ?, ?)"
         cur.executemany(sql, list_of_rows)
     except connector.errors.Error as snowflakeError:
-        logger.error(f"Error inserting to table: {snowflakeError}")
+        logger.error(f"Error inserting to table", extra={"Error": snowflakeError})
         # close cursor and connection
         cur.close()
         conn.close()
@@ -141,7 +143,7 @@ def main():
                               "must": [
                                 {
                                   "match": {
-                                    "_index": "*meta*"
+                                    "_index": "flywheel-meta-*"
                                   }
                                 },
                                 {
@@ -157,18 +159,21 @@ def main():
         logger.info("Making request to Elastic...")
         es = requests.post(url=endpoint, json=json.loads(query))
     except (http.client.error, requests.exceptions.ConnectionError, requests.HTTPError) as HTTP_Error:
-        logger.error(f"HTTP error when making POST request: {HTTP_Error}")
+        logger.error(f"HTTP error when making POST request", extra={"Error": HTTP_Error})
         exit(0)
 
     try:
         content = json.loads(es.content)
+
         if content.get("error", "") != "":
-            logger.error(f"HTTP error when making POST request", extra={"status_code": content.get("status", "")})
+            logger.error(f"HTTP error when making POST request", extra={"status_code": content.get("status", ""),
+                                                                        "Error": "Bad response was returned"})
+
             exit(0)
         else:
             logger.info("Successfully queried Elasticsearch", extra={"status_code": 200})
     except ValueError as err:
-        logger.error(f"Got empty / bad response from Elastic: {err}")
+        logger.error(f"Got empty / bad response from Elastic", extra={"Error": err})
         exit(0)
     list_of_rows = json_to_list(content)
     write_to_snowflake(list_of_rows)
