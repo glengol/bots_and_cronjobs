@@ -24,12 +24,6 @@ PASSWORD = env_vars.PASSWORD
 WAREHOUSE = env_vars.WAREHOUSE
 ACCOUNT = env_vars.ACCOUNT
 
-AWS_ACCESS_KEY_ID = env_vars.AWS_ACCESS_KEY
-AWS_SECRET_ACCESS_KEY = env_vars.AWS_SECRET_KEY
-
-ES_USER = env_vars.ES_USERNAME
-ES_PASSWORD = env_vars.ES_PASSWORD
-
 
 def json_to_list(data) -> []:
     """
@@ -70,10 +64,10 @@ def write_to_snowflake(list_of_rows) -> None:
     try:
         connector.paramstyle = 'qmark'
         conn = connector.connect(
-            user=USER,
-            password=PASSWORD,
-            account=ACCOUNT,
-            warehouse=WAREHOUSE,
+            user=env_vars.USER,
+            password=env_vars.PASSWORD,
+            account=env_vars.ACCOUNT,
+            warehouse=env_vars.WAREHOUSE,
             database=database,
             schema=schema
         ).cursor()
@@ -104,7 +98,6 @@ def write_to_snowflake(list_of_rows) -> None:
 def main():
     query_size = 0
     agg_size = 10000
-    endpoint = env_vars.ES_ENDPOINT
     query = json.dumps(
                         {
                           "size": query_size,
@@ -157,7 +150,7 @@ def main():
                         })
     try:
         logger.info("Making request to Elastic...")
-        es = requests.post(url=endpoint, json=json.loads(query))
+        es = requests.post(url=env_vars.ES_ENDPOINT, json=json.loads(query))
     except (http.client.error, requests.exceptions.ConnectionError, requests.HTTPError) as HTTP_Error:
         logger.error(f"HTTP error when making POST request", extra={"Error": HTTP_Error})
         exit(0)
