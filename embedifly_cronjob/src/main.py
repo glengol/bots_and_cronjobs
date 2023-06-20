@@ -18,7 +18,7 @@ logger.addHandler(json_handler)
 
 
 # Get env vars
-env_vars = config.Vars()
+SETTINGS = config.Vars()
 
 
 def json_to_list(data) -> []:
@@ -60,10 +60,10 @@ def write_to_snowflake(list_of_rows) -> None:
     try:
         connector.paramstyle = 'qmark'
         conn = connector.connect(
-            user=env_vars.USER,
-            password=env_vars.PASSWORD,
-            account=env_vars.ACCOUNT,
-            warehouse=env_vars.WAREHOUSE,
+            user=SETTINGS.USER,
+            password=SETTINGS.PASSWORD,
+            account=SETTINGS.ACCOUNT,
+            warehouse=SETTINGS.WAREHOUSE,
             database=database,
             schema=schema
         ).cursor()
