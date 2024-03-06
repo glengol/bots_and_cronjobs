@@ -1,0 +1,20 @@
+controller:
+  volumeModificationFeature:
+    enabled: true
+  enableMetrics: false # Enable metrics after kube-prometheus-stack
+  k8sTagClusterId: "arn:aws:eks:eu-west-1:094724549126:cluster/product"
+  region: "us-east-1"
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::094724549126:role/product-aws-ebs-csi-driver-irsa"
+storageClasses:
+  - name: ebs
+    annotations:
+      storageclass.kubernetes.io/is-default-class: "true"
+    labels:
+      managed-by: aws-ebs-csi-driver-application
+    volumeBindingMode: WaitForFirstConsumer
+    reclaimPolicy: Delete
+    allowVolumeExpansion: true
+    parameters:
+      encrypted: "true"
