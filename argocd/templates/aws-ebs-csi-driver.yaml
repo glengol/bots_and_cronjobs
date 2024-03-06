@@ -21,7 +21,7 @@ spec:
       targetRevision: "HEAD"
       ref: values
   destination:
-    server: "http://kubernetes.default.svc"
+    server: "https://kubernetes.default.svc"
     namespace: "aws-ebs-csi-driver"
   syncPolicy:
     automated:
