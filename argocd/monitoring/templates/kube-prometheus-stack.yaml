@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  labels:
+    repository: argocd
+spec:
+  project: monitoring
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: "kube-prometheus-stack"
+      targetRevision: {{ .Values.kubePrometheusStack.targetRevision | quote }}
+      helm:
+          releaseName: kube-prometheus-stack
+          valueFiles:
+            - $values/argocd/releases/monitoring/kube-prometheus-stack-values.yaml
+    - repoURL: https://github.com/infralight/product-projects.git
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - PrunePropagationPolicy=orphan
+      - ApplyOutOfSyncOnly=true
+      - CreateNamespace=true
+      - ServerSideApply=true

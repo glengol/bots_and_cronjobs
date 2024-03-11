@@ -1,0 +1,239 @@
+defaultRules:
+  create: false
+# additionalPrometheusRulesMap:
+#   custom-rules:
+#     groups:
+#       - name: fetchers
+#         interval: 4m
+#         rules:
+#           - record: jobs:fetchers_account_integration_service:count
+#             expr: count(count(count_over_time(aws_fetching_success_summary_sum{} [4m])) without (ts) > 1) by (an)
+#           - record: jobs:fetchers_account_integration_service:count_by
+#             expr: count(count(count_over_time(aws_fetching_success_summary_sum{} [4m])) without (ts) > 1) by (an,ii,ps)
+#           - record: jobs:fetchers_account_integration_service:perc
+#             expr: avg(aws_fetching_success_summary_sum > 0) by (an,ii,ps)
+prometheus-windows-exporter:
+  prometheus:
+    monitor:
+      enabled: false
+alertmanager:
+  enabled: false
+grafana:
+  enabled: false
+kubeApiServer:
+  serviceMonitor:
+    metricRelabelings:
+      - regex: 'endpoint|instance|job|service'
+        action: labeldrop
+      # Drop excessively noisy apiserver buckets.
+      - action: drop
+        regex: apiserver_request_duration_seconds_bucket;(0.15|0.2|0.3|0.35|0.4|0.45|0.6|0.7|0.8|0.9|1.25|1.5|1.75|2|3|3.5|4|4.5|6|7|8|9|15|25|40|50)
+        sourceLabels:
+          - __name__
+          - le
+kubelet:
+  serviceMonitor:
+    cAdvisorMetricRelabelings:
+      - sourceLabels: [ __name__ ]
+        action: drop
+        regex: 'container_blkio_device_usage_total|container_tasks_state|container_memory_failures_total|kubelet_runtime_operations_duration_seconds_bucket'
+      - regex: 'id|image|name|instance|job|endpoint|metrics_path|service'
+        action: labeldrop
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_cpu_(cfs_throttled_seconds_total|load_average_10s|system_seconds_total|user_seconds_total)'
+      # Drop less useful container / always zero filesystem metrics.
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_fs_(io_current|io_time_seconds_total|io_time_weighted_seconds_total|reads_merged_total|sector_reads_total|sector_writes_total|writes_merged_total)'
+      # Drop less useful / always zero container memory metrics.
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_memory_(mapped_file|swap)'
+      # Drop less useful container process metrics.
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_(file_descriptors|tasks_state|threads_max)'
+      # Drop container spec metrics that overlap with kube-state-metrics.
+      - sourceLabels: [__name__]
+        action: drop
+        regex: 'container_spec.*'
+      # Drop cgroup metrics with no pod.
+      - sourceLabels: [id, pod]
+        action: drop
+        regex: '.+;'
+    probesMetricRelabelings:
+      - sourceLabels: [ __name__ ]
+        action: drop
+        regex: 'container_blkio_device_usage_total|container_tasks_state|container_memory_failures_total|kubelet_runtime_operations_duration_seconds_bucket|container_tasks_state|container_memory_failures_total'
+      - regex: 'id|image|name|instance|pod_uid|job|endpoint|metrics_path|service'
+        action: labeldrop
+    metricRelabelings:
+      - sourceLabels: [ __name__ ]
+        action: drop
+        regex: 'container_blkio_device_usage_total|container_tasks_state|container_memory_failures_total|kubelet_runtime_operations_duration_seconds_bucket|container_tasks_state|container_memory_failures_total'
+      - regex: 'id|image|name|instance|job|endpoint|metrics_path|service'
+        action: labeldrop
+kube-state-metrics:
+  image:
+    tag: "v2.9.2"
+  # tolerations:
+  #   - key: "karpenter.firefly.ai/disruption"
+  #     operator: "Equal"
+  #     value: "when-empty"
+  #     effect: "NoSchedule"
+  # affinity:
+  #   nodeAffinity:
+  #     requiredDuringSchedulingIgnoredDuringExecution:
+  #       nodeSelectorTerms:
+  #         - matchExpressions:
+  #             - key: karpenter.firefly.ai/disruption
+  #               operator: In
+  #               values:
+  #                 - "when-empty"
+  metricLabelsAllowlist:
+    - pods=[gofirefly.io/provider,gofirefly.io/account_id,gofirefly.io/account_name,gofirefly.io/resources_profile,gofirefly.io/integration_id,gofirefly.io/event_driven,gofirefly.io/resource_type,gofirefly.io/region,gofirefly.io/service,accountId,assetType,integrationId,region,profile,flywheel.gofirefly.io/accountId,flywheel.gofirefly.io/integrationId]
+    - jobs=[gofirefly.io/provider,gofirefly.io/account_id,gofirefly.io/account_name,gofirefly.io/resources_profile,gofirefly.io/integration_id,gofirefly.io/event_driven,gofirefly.io/resource_type,gofirefly.io/region,gofirefly.io/service,accountId,assetType,integrationId,region,profile,flywheel.gofirefly.io/accountId,flywheel.gofirefly.io/integrationId]
+    - nodes=[eks.amazonaws.com/nodegroup,kubernetes.io/hostname,node.kubernetes.io/instance-type,topology.kubernetes.io/zone]
+  prometheus:
+    monitor:
+      metricRelabelings:
+        - sourceLabels: [ __name__ ]
+          action: drop
+          regex: 'kube_secret.*'
+        - regex: 'instance|endpoint|owner_name|owner_kind|mount_point|uid|container_id|service|job'
+          action: labeldrop
+prometheus-node-exporter:
+  # priorityClassName: "application-critical"
+  prometheus:
+    monitor:
+      metricRelabelings:
+        - regex: 'endpoint|pod|job|container'
+          action: labeldrop
+        - sourceLabels: [ __name__ ]
+          action: drop
+          regex: 'node_filesystem.*'
+prometheusOperator:
+  # admissionWebhooks:
+  #   patch:
+  #     priorityClassName: "application-critical"
+  #     tolerations:
+  #       - key: "karpenter.firefly.ai/disruption"
+  #         operator: "Equal"
+  #         value: "when-empty"
+  #         effect: "NoSchedule"
+  #       - key: "karpenter.firefly.ai/network"
+  #         operator: "Equal"
+  #         value: "public"
+  #         effect: "NoSchedule"
+  resources:
+    limits:
+      memory: 6Gi
+      cpu: 2
+    requests:
+      cpu: 200m
+      memory: 1Gi
+  # tolerations:
+  #   - key: "karpenter.firefly.ai/disruption"
+  #     operator: "Equal"
+  #     value: "when-empty"
+  #     effect: "NoSchedule"
+  # affinity:
+  #   nodeAffinity:
+  #     requiredDuringSchedulingIgnoredDuringExecution:
+  #       nodeSelectorTerms:
+  #         - matchExpressions:
+  #             - key: karpenter.firefly.ai/disruption
+  #               operator: In
+  #               values:
+  #                 - "when-empty"
+  #   podAntiAffinity:
+  #     preferredDuringSchedulingIgnoredDuringExecution:
+  #       - weight: 1
+  #         podAffinityTerm:
+  #           labelSelector:
+  #             matchExpressions:
+  #               - key: app.kubernetes.io/name
+  #                 operator: In
+  #                 values:
+  #                   - prometheus
+  #           topologyKey: kubernetes.io/hostname
+  prometheusConfigReloader:
+    resources:
+      limits:
+        memory: 64Mi
+      requests:
+        cpu: 200m
+        memory: 64Mi
+prometheus:
+  thanosService:
+    enabled: true
+    # clusterIP: "172.20.60.67"
+  # thanosIngress:
+  #   enabled: true
+  #   annotations:
+  #     alb.ingress.kubernetes.io/group.name: "aws-cluster-internal"
+  #     alb.ingress.kubernetes.io/backend-protocol-version: GRPC
+  #     alb.ingress.kubernetes.io/scheme: internal
+  #     alb.ingress.kubernetes.io/target-type: "ip"
+  #     ingress.kubernetes.io/force-ssl-redirect: "true"
+  #     alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:094724549126:certificate/377d3e91-c78d-47b2-b7d9-eabcb7686f9b"
+  #     kubernetes.io/ingress.class: alb
+  #     external-dns.alpha.kubernetes.io/hostname: "prometheus-aws-cluster-sidecar.gofirefly.io"
+  #   hosts:
+  #     - "prometheus-aws-cluster-sidecar.gofirefly.io"
+  #   pathType: ImplementationSpecific
+  #   paths:
+  #     - /*
+    # tls:
+    #   - secretName: prometheus-aws-cluster-sidecar-tls
+    #     hosts:
+    #       - prometheus-aws-cluster-sidecar.gofirefly.io
+  prometheusSpec:
+    retention: "14d"
+    retentionSize: 190GB
+    externalLabels:
+      cluster: product-cluster
+      environment: prod-us-v2
+      location: us-east-1
+    # tolerations:
+    #   - key: "karpenter.firefly.ai/disruption"
+    #     operator: "Equal"
+    #     value: "when-empty"
+    #     effect: "NoSchedule"
+    # podAntiAffinity: "soft"
+    # affinity:
+    #   nodeAffinity:
+    #     requiredDuringSchedulingIgnoredDuringExecution:
+    #       nodeSelectorTerms:
+    #         - matchExpressions:
+    #             - key: karpenter.firefly.ai/disruption
+    #               operator: In
+    #               values:
+    #                 - "when-empty"
+    # remoteWrite:
+    #   - url: "https://thanos-receive.firefly.ai/api/v1/receive"
+    #     queueConfig:
+    #       maxShards: 10
+    #       minShards: 1
+    #       maxSamplesPerSend: 500
+    #       capacity: 10000
+    resources:
+      requests:
+        cpu: 1
+        memory: 512M
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "ebs"
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 50Gi
+    # priorityClassName: "application-critical"
+    thanos:
+      image: "quay.io/thanos/thanos:v0.34.0"
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}

@@ -1,0 +1,2 @@
+kubePrometheusStack:
+  targetRevision: “56.0.4”
