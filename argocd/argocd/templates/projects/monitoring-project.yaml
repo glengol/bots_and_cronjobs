@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  sourceRepos:
+    - '*'
+  destinations:
+    - namespace: 'loki'
+      server: '*'
+    - namespace: 'kube-system'
+      server: '*'
+    - namespace: 'monitoring'
+      server: '*'
+    - namespace: 'opentelemetry-operator-system'
+      server: '*'
+    - namespace: 'argocd'
+      server: '*'
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
