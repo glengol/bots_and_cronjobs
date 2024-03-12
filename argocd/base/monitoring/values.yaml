@@ -1,2 +1,4 @@
 kubePrometheusStack:
   targetRevision: 56.0.4
+promtail:
+  targetRevision: 6.2.2
