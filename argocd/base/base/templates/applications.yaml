@@ -9,7 +9,7 @@ spec:
   project: argocd
   source:
     repoURL: https://github.com/infralight/product-projects.git
-    path: argocd/applications
+    path: argocd/base/applications
     targetRevision: HEAD
   destination:
     server: 'https://kubernetes.default.svc'
