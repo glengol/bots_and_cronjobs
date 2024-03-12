@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+  namespace: argocd
+  labels:
+    repository: argocd
+spec:
+  project: infrastructure
+  sources:
+    - repoURL: https://aws.github.io/eks-charts
+      chart: "aws-load-balancer-controller"
+      targetRevision: {{ .Values.awsLoadBalancerController.targetRevision | quote }}
+      helm:
+          releaseName: aws-load-balancer-controller
+          valueFiles:
+            - $values/argocd/releases/infrastructure/aws-load-balancer-controller-values.yaml
+    - repoURL: https://github.com/infralight/product-projects.git
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: aws-load-balancer-controller
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
