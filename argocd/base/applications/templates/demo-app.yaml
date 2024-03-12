@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app
+  namespace: argocd
+  labels:
+    repository: argocd
+spec:
+  project: applications
+  source:
+    repoURL: https://github.com/infralight/product-projects.git
+    targetRevision: HEAD
+    path: argocd/releases/applications/demo
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: applications
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
