@@ -9,6 +9,10 @@ spec:
   destinations:
     - namespace: 'aws-load-balancer-controller'
       server: '*'
+    - namespace: 'external-dns'
+      server: '*'
+    - namespace: 'external-secrets'
+      server: '*'
   clusterResourceWhitelist:
     - group: '*'
       kind: '*'

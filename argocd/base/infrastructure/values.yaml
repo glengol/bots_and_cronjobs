@@ -1,2 +1,6 @@
 awsLoadBalancerController:
   targetRevision: "1.7.1"
+
+externalDns:
+  targetRevision: "6.28.6"
+

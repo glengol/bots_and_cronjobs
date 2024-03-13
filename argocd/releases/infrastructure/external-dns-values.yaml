@@ -1,0 +1,9 @@
+publishInternalServices: true
+serviceTypeFilter:
+  - LoadBalancer
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::094724549126:role/product-external-dns-irsa"
+txtOwnerId: "infra-external-dns"
+domainFilters:
+  - "firefly.ai"

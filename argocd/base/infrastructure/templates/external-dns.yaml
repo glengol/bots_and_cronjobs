@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns
+  namespace: argocd
+  labels:
+    repository: argocd
+spec:
+  project: infrastructure
+  sources:
+    - repoURL: "https://charts.bitnami.com/bitnami"
+      chart: "external-dns"
+      targetRevision: {{ .Values.externalDns.targetRevision | quote }}
+      helm:
+          releaseName: external-dns
+          valueFiles:
+            - $values/argocd/releases/infrastructure/external-dns-values.yaml
+    - repoURL: https://github.com/infralight/product-projects.git
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: external-dns
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
