@@ -169,29 +169,29 @@ prometheus:
   thanosService:
     enabled: true
     # clusterIP: "172.20.60.67"
-  # thanosIngress:
-  #   enabled: true
-  #   annotations:
-  #     alb.ingress.kubernetes.io/group.name: "aws-cluster-internal"
-  #     alb.ingress.kubernetes.io/backend-protocol-version: GRPC
-  #     alb.ingress.kubernetes.io/scheme: internal
-  #     alb.ingress.kubernetes.io/target-type: "ip"
-  #     ingress.kubernetes.io/force-ssl-redirect: "true"
-  #     alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:094724549126:certificate/377d3e91-c78d-47b2-b7d9-eabcb7686f9b"
-  #     kubernetes.io/ingress.class: alb
-  #     external-dns.alpha.kubernetes.io/hostname: "prometheus-aws-cluster-sidecar.gofirefly.io"
-  #   hosts:
-  #     - "prometheus-aws-cluster-sidecar.gofirefly.io"
-  #   pathType: ImplementationSpecific
-  #   paths:
-  #     - /*
+  thanosIngress:
+    enabled: true
+    annotations:
+      alb.ingress.kubernetes.io/group.name: "product-cluster-internal"
+      alb.ingress.kubernetes.io/backend-protocol-version: GRPC
+      alb.ingress.kubernetes.io/scheme: internal
+      alb.ingress.kubernetes.io/target-type: "ip"
+      ingress.kubernetes.io/force-ssl-redirect: "true"
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:094724549126:certificate/5a373c1f-ea32-49f7-b0a7-28a15573dab6"
+      kubernetes.io/ingress.class: alb
+      external-dns.alpha.kubernetes.io/hostname: "prometheus-product-sidecar.firefly.ai"
+    hosts:
+      - "prometheus-product-sidecar.firefly.ai"
+    pathType: ImplementationSpecific
+    paths:
+      - /*
     # tls:
     #   - secretName: prometheus-aws-cluster-sidecar-tls
     #     hosts:
     #       - prometheus-aws-cluster-sidecar.gofirefly.io
   prometheusSpec:
     retention: "14d"
-    retentionSize: 190GB
+    retentionSize: 50GB
     externalLabels:
       cluster: product-cluster
       environment: prod-us-v2
