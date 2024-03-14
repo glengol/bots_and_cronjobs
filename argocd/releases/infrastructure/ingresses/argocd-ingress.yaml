@@ -9,6 +9,7 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/target-type: ip
     external-dns.alpha.kubernetes.io/hostname: product.firefly.ai
+    kubernetes.io/ingress.class: alb
   name: argocd
   namespace: argocd
 spec:
