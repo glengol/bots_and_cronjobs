@@ -13,7 +13,7 @@ spec:
       server: '*'
     - namespace: 'external-secrets'
       server: '*'
-    - namespace: 'argocd'
+    - namespace: '*'
       server: '*'
   clusterResourceWhitelist:
     - group: '*'
