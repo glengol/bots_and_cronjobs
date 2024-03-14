@@ -22,5 +22,4 @@ spec:
     namespace: monitoring
   syncPolicy:
     automated:
-      prune: false
       selfHeal: true

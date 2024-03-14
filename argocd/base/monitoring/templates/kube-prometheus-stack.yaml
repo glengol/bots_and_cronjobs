@@ -23,9 +23,7 @@ spec:
     namespace: monitoring
   syncPolicy:
     automated:
-      prune: false
       selfHeal: true
-      allowEmpty: false
     syncOptions:
       - PrunePropagationPolicy=orphan
       - ApplyOutOfSyncOnly=true
