@@ -2,12 +2,13 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
+    alb.ingress.kubernetes.io/backend-protocol: HTTPS
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:094724549126:certificate/5a373c1f-ea32-49f7-b0a7-28a15573dab6
     alb.ingress.kubernetes.io/group.name: product-cluster-internal
     alb.ingress.kubernetes.io/scheme: internal
     alb.ingress.kubernetes.io/target-type: ip
     external-dns.alpha.kubernetes.io/hostname: product.firefly.ai
-    ingress.kubernetes.io/force-ssl-redirect: "true"
+    # ingress.kubernetes.io/force-ssl-redirect: "true"
     kubernetes.io/ingress.class: alb
   name: argocd
   namespace: argocd
@@ -20,9 +21,9 @@ spec:
           service:
             name: argocd-server
             port:
-              number: 443
-        path: /*
-        pathType: ImplementationSpecific
+              number: 80
+        path: /
+        pathType: Prefix
   # tls:
   # - hosts:
   #   - product.firefly.ai
