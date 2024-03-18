@@ -5,6 +5,8 @@ metadata:
   namespace: argocd
   labels:
     repository: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
 spec:
   project: monitoring
   sources:
