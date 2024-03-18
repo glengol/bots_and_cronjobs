@@ -193,7 +193,7 @@ prometheus:
     retention: "14d"
     retentionSize: 50GB
     externalLabels:
-      cluster: product-cluster
+      cluster: product
       environment: prod-us-v2
       location: us-east-1
     # tolerations:
