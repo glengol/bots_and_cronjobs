@@ -25,8 +25,36 @@ db = client[DATABASE_NAME]
 collection = db[COLLECTION_NAME]
 
 current_date = datetime.now()
-current_date = datetime(current_date.year,current_date.month, current_date.day)
-last_month_date = current_date.replace(month=current_date.month - 1)
+
+# Calculate the date one month ago
+year = current_date.year
+month = current_date.month - 1
+day = current_date.day
+
+# Adjust for cases where the previous month was the previous year
+if month == 0:
+    year -= 1
+    month = 12
+
+# Determine the number of days in the previous month
+if month in [1, 3, 5, 7, 8, 10, 12]:
+    num_days_in_previous_month = 31
+elif month == 2:
+    if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0):
+        num_days_in_previous_month = 29  # Leap year
+    else:
+        num_days_in_previous_month = 28
+else:
+    num_days_in_previous_month = 30
+
+# If the current day is greater than the last day of the previous month,
+# set it to the last day of the previous month
+if day > num_days_in_previous_month:
+    day = num_days_in_previous_month
+
+# Construct the datetime object for one month ago
+last_month_date = datetime(year, month, day)
+
 
 query = {"tier_type": "PREMIUM_TRIAL", 
          "active": True, 
