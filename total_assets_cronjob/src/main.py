@@ -20,9 +20,6 @@ logger = logging.getLogger('my_json')
 logger.setLevel(logging.INFO)
 logger.addHandler(json_handler)
 
-# Get env vars
-# SETTINGS = config.Vars()
-
 # MongoDB Configuration
 MONGO_URI = os.environ.get("MONGO_URI")
 client = pymongo.MongoClient(MONGO_URI)
