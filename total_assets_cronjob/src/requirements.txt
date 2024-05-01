@@ -1,0 +1,6 @@
+http.client
+requests
+pydantic
+python-json-logger
+snowflake-connector-python
+pymongo
