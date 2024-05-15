@@ -1,0 +1,38 @@
+{
+    "blocks": [
+            {
+                    "type": "section",
+                    "text": {
+                            "type": "mrkdwn",
+                            "text": ":mag: Results for *name*:"
+                    }
+            },
+            {
+                    "type": "divider"
+            },
+            {
+                    "type": "section",
+                    "text": {
+                            "type": "mrkdwn",
+                            "text": "*SELECT ACCOUNT*\nSelect the account you wish to change"
+                    },
+                    "accessory": {
+                            "type": "static_select",
+                            "action_id": "select_account",
+                            "placeholder": {
+                                    "type": "plain_text",
+                                    "text": "Select Account"
+                            },
+                            "options": [
+                                    {
+                                            "text": {
+                                                    "type": "plain_text",
+                                                    "text": "yoran.co.il"
+                                            },
+                                            "value": "value-0"
+                                    }
+                            ]
+                    }
+            }
+    ]
+}
