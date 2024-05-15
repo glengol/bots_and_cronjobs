@@ -1,0 +1,23 @@
+{
+    "type": "actions",
+    "elements": [
+            {
+                    "type": "button",
+                    "action_id": "execute_action",
+                    "text": {
+                            "type": "plain_text",
+                            "text": ":white_check_mark: EXECUTE ACTION :white_check_mark:"
+                    },
+                    "value": "exec_action"
+            },
+            {
+                    "action_id": "abort_action",
+                    "type": "button",
+                    "text": {
+                            "type": "plain_text",
+                            "text": ":x: END SESSION :x:"
+                    },
+                    "value": "abort_config"
+            }
+    ]
+}

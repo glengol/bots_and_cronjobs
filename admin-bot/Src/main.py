@@ -1,3 +1,5 @@
+import os
+from pydantic import Field
 from slack_sdk import WebClient
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -35,7 +37,6 @@ def configure_instance(message: {}, say, num: int):
     :param message: The message that was picked up by the listener
     :param say: Specifying the use of the Slack function say()
     :param num: if num == 0 then a string will be queried if == 1 a number will be queried
-
     """
     text = message.get('text')
     # parse the account name to use an action on
@@ -75,6 +76,7 @@ def configure_instance(message: {}, say, num: int):
                 extra={"user_id": message.get("user"),
                        "text": message,
                        "level": "INFO"})
+
 
 
 @app.message()  # configure bot to do a command
@@ -209,18 +211,31 @@ def execute_action(user_id: str, say, ack):
                            "name": name, "status": status})
         # send confirmation message that the action successfully finished
         say(f"Account successfully {'suspended' if status == 'false' else 'activated'}. Please check "
-            f"#account-offboarding for more details")
+            f"#account-mgmt-audit for more details")
 
-    # execute extend POC
+
+
+    # execute extend POC 7 days
     elif utility.get_item(admin_list, user_id,
-                          "Action") == ":hourglass_flowing_sand: Extend POC :hourglass_flowing_sand:":
+                          "Action") == ":hourglass_flowing_sand: Extend POC +7 days :hourglass_flowing_sand:":
         requests.get(
-            variables.extend_poc,
+            variables.extend_poc_7_days,
             data={"id": utility.get_id(utility.get_item(admin_list, user_id, "Request"), name),
                   "name": client.users_info(user=user_id).get("user", {}).get("real_name"),
                   "url": name})
         # send confirmation message that the action successfully finished
-        say(f"Account successfully extended POC. Please check #account-offboarding for more details")
+        say(f"Account successfully extended POC +7 days. Please check #account-mgmt-audit for more details")
+    
+    # execute extend POC 2 days
+    elif utility.get_item(admin_list, user_id,
+                          "Action") == ":hourglass_flowing_sand: Extend POC +2 days :hourglass_flowing_sand:":
+        requests.get(
+            variables.extend_poc_2_days,
+            data={"id": utility.get_id(utility.get_item(admin_list, user_id, "Request"), name),
+                  "name": client.users_info(user=user_id).get("user", {}).get("real_name"),
+                  "url": name})
+        # send confirmation message that the action successfully finished
+        say(f"Account successfully extended POC +2 days. Please check #account-mgmt-audit for more details")
         # if user is going to change account tier
     else:
         requests.get(variables.change_tier,
@@ -230,7 +245,7 @@ def execute_action(user_id: str, say, ack):
                            "url": name})
         # send confirmation message that the action successfully finished
         say(f"Account successfully changed to {utility.get_tier(utility.get_item(admin_list, user_id, 'Action'))}. Please check"
-            f" #account-offboarding for more details")
+            f" #account-mgmt-audit for more details")
     logger.info(
         f"Exited successfully from function execute_action() for user {app.client.users_info(user=user_id).get('user').get('name')}",
         extra={"user_id": user_id,

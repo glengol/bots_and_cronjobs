@@ -1,0 +1,67 @@
+{
+    "type": "section",
+    "text": {
+            "type": "mrkdwn",
+            "text": "*SELECT ACTION*\nSelect the action you want to do"
+    },
+    "accessory": {
+            "type": "static_select",
+            "action_id": "select_action",
+            "placeholder": {
+                    "type": "plain_text",
+                    "text": "Select Action"
+            },
+            "options": [
+                    {
+                            "text": {
+                                    "type": "plain_text",
+                                    "text": ":white_check_mark: Activate :white_check_mark:"
+                            },
+                            "value": "value-0"
+                    },
+                    {
+                            "text": {
+                                    "type": "plain_text",
+                                    "text": ":x: Suspend :x:"
+                            },
+                            "value": "value-1"
+                    },
+                    {
+                        "text": {
+                                "type": "plain_text",
+                                "text": ":hourglass_flowing_sand: Extend POC +2 days :hourglass_flowing_sand:"
+                        },
+                        "value": "value-6"
+                    },
+                    {
+                            "text": {
+                                    "type": "plain_text",
+                                    "text": ":hourglass_flowing_sand: Extend POC +7 days :hourglass_flowing_sand:"
+                            },
+                            "value": "value-2"
+                    },
+                    
+                    {
+                            "text": {
+                                    "type": "plain_text",
+                                    "text": ":hut: FREE TIER :hut:"
+                            },
+                            "value": "value-3"
+                    },
+                    {
+                            "text": {
+                                    "type": "plain_text",
+                                    "text": ":house: PREMIUM TRIAL :house:"
+                            },
+                            "value": "value-4"
+                    },
+                    {
+                            "text": {
+                                    "type": "plain_text",
+                                    "text": ":office: ENTERPRISE :office:"
+                            },
+                            "value": "value-5"
+                    }
+            ]
+    }
+}

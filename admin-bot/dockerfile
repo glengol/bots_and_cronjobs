@@ -3,7 +3,7 @@ FROM python:3.9-slim-buster
 
 # Copy application code
 COPY ./Src /src
-COPY ./templates /templates
+COPY ./templates src/templates
 WORKDIR /src
 
 # Install dependencies
