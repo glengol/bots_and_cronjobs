@@ -31,9 +31,9 @@ spec:
             releaseName: {{ include "appName" . }}
             valueFiles:
             {{- include "application-sets.clusters.prod.product.valuesFiles" . | nindent 14 }}
-        - repoURL: {{ include "application-sets.helmValuesRepoName" . }}
-          targetRevision: "master"
-          ref: helm-values
+        # - repoURL: {{ include "application-sets.helmValuesRepoName" . }}
+        #   targetRevision: "master"
+        #   ref: helm-values
         - repoURL: {{ include "application-sets.argocdRepoName" . }}
           targetRevision: {{ .Values.argocdRepoTargetRevision | quote }}
           ref: values
