@@ -1,0 +1,7 @@
+{{- define "appName" -}}
+  {{- printf "total-assets" }}
+{{- end }}
+{{- define "appNamespace" -}}
+  {{- printf "product" }}
+{{- end }}
+{{- include "application-sets.template" . }}
