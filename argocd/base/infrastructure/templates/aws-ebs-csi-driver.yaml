@@ -16,7 +16,7 @@ spec:
       helm:
         releaseName: aws-ebs-csi-driver
         valueFiles:
-          - $values/argocd/values/aws-ebs-csi-driver.yaml
+          - $values/argocd/releases/infrastructure/aws-ebs-csi-driver.yaml
     - repoURL: "https://github.com/infralight/product-projects"
       targetRevision: "HEAD"
       ref: values

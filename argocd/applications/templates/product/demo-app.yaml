@@ -1,0 +1,3 @@
+{{- define "app.name" -}} {{- printf "demo-app" }} {{- end }}
+{{- define "app.namespace" -}} {{- printf "applications" }} {{- end }}
+{{- include "application-template" . }}
