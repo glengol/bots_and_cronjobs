@@ -7,7 +7,7 @@ metadata:
     app: total-assets
     environment: production
 spec:
-  schedule: {{ Values.schedule }}
+  schedule: {{ .Values.schedule }}
   suspend: false
   jobTemplate:
     spec:
