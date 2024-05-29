@@ -6,19 +6,17 @@ metadata:
   namespace: argocd
   labels:
     firefly.ai/argo: application
-    firefly.ai/application: product
+    firefly.ai/application: {{ include "app.name" . }}
     firefly.ai/project: applications
 spec:
   project: applications
   source:
-    repoURL: {{ include "application-sets.argocdRepoName" . | quote}}
-    targetRevision: HEAD
-    path: "{{ include "application-sets.clusters.prod.product.valuesFiles" . }}/{{ include "app.name" . }}"
+  {{- include "app.source" . | indent 4 }}
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: {{ include "app.namespace" . }}
   syncPolicy:
-    automated: {}
+    # automated: {}
     syncOptions:
       - CreateNamespace=true
 {{- end -}}

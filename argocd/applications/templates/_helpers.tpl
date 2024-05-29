@@ -10,6 +10,10 @@
 {{- printf "argocd/charts" }}
 {{- end }}
 
+{{- define "application-sets.clusters.prod.product.charts" -}}
+{{- printf "argocd/charts" }}
+{{- end }}
+
 
 {{- define "application-sets.clusters.prod.product.url" -}}
 {{- printf "https://kubernetes.default.svc" }}
