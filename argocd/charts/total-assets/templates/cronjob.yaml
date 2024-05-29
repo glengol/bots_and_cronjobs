@@ -2,7 +2,6 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: total-assets
-  namespace: product
   labels:
     app: total-assets
     environment: production
@@ -15,7 +14,7 @@ spec:
         spec:
           containers:
           - name: total-assets-deployment
-            image: 094724549126.dkr.ecr.us-east-1.amazonaws.com/product-total-assets:latest
+            image: {{ .Values.image }}
             envFrom:
               - secretRef:
                   name: total-assets-secrets

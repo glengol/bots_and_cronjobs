@@ -1,1 +1,2 @@
 schedule: "00 00 * * *"
+image: "094724549126.dkr.ecr.us-east-1.amazonaws.com/product-total-assets:latest"
