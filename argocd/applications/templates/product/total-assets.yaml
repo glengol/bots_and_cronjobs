@@ -15,7 +15,7 @@ spec:
     path: "{{ include "application-sets.clusters.prod.product.charts" . }}/total-assets"
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: {{ include "app.namespace" . }}
+    namespace: product
   syncPolicy:
     # automated: {}
     syncOptions:
