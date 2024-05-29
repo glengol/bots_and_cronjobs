@@ -1,0 +1,14 @@
+{{- define "app.name" -}} {{- printf "total-assets" }} {{- end }}
+{{- define "app.namespace" -}} {{- printf "product" }} {{- end }}
+
+
+{{- define "app.source" }}
+
+repoURL: {{ include "application-sets.argocdRepoName" . | quote }}
+targetRevision: HEAD
+path: "{{ include "application-sets.clusters.prod.product.charts" . }}/{{ include "app.name" . }}"
+
+{{- end }}
+
+
+{{- include "application-template" . }}

@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: total-assets
+  namespace: product
+  labels:
+    app: total-assets
+    environment: production
+spec:
+  schedule: "00 21 * * *"
+  suspend: false
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: total-assets-deployment
+            image: 094724549126.dkr.ecr.us-east-1.amazonaws.com/product-total-assets:latest
+            envFrom:
+              - secretRef:
+                  name: total-assets-secrets
+          restartPolicy: Never
