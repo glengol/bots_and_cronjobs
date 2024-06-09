@@ -69,10 +69,9 @@ def main():
 
             if api_response is not None:
                 if api_response == {}:
-                    api_response = {'excluded': -1, 'notExcluded': -1}
+                    api_response = {'count': 0}
 
-                excluded = api_response["excluded"]
-                inventory = api_response["notExcluded"]
+                count = api_response["count"]
                 IsraelTz = pytz.timezone("Israel") 
                 timeInIsrael = datetime.now(IsraelTz)
                 timestamp = timeInIsrael.strftime("%Y-%m-%d %H:%M:%S")
@@ -81,11 +80,11 @@ def main():
                     cursor.execute(f"""
                         INSERT INTO {table} (TIMESTAMP, ACCOUNT_ID, EXCLUDED_ASSETS, INVENTORY_ASSETS)
                         VALUES (%s, %s, %s, %s)
-                    """, (timestamp, account_id, excluded, inventory))
+                    """, (timestamp, account_id, 0, count))
                     cursor.close()
                     snowflake_conn.commit()
 
-                    logger.info(msg=f'{excluded} excluded assets and {inventory} inventory assets numbers for account_id {account_id} inserted into Snowflake.')
+                    logger.info(msg=f'{count} total assets numbers for account_id {account_id} inserted into Snowflake.')
                 except snowflake.connector.errors.Error as error:
                     logger.error(msg=f'Error inserting data into Snowflake for account_id {account_id}.', extra={"Error": str(error)})
     finally:
