@@ -84,11 +84,15 @@
             },
             {
                 "dispatch_action": true,
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": "Account Search"},
-                "accessory": {
+                "type": "input",
+                "element": {
                     "type": "plain_text_input",
                     "action_id": "account_search"
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": "Search for account:",
+                    "emoji": true
                 }
             },
             {
@@ -107,5 +111,4 @@
             }
         ]
     }
-    
     
