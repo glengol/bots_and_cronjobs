@@ -1,0 +1,115 @@
+{
+        "blocks": [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": ":rocket: Telemetry :rocket:"
+                }
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Trials started in the last 7 days:* *COUNT*"
+                },
+                "accessory": {
+                    "type": "static_select",
+                    "action_id": "select_account",
+                    "placeholder": {
+                        "type": "plain_text",
+                        "text": "Select Account"
+                    },
+                    "options": [
+                        {
+                            "text": {
+                                "type": "plain_text",
+                                "text": "yoran.co.il"
+                            },
+                            "value": "value-0"
+                        }
+                    ]
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Trials about to end*"
+                },
+                "accessory": {
+                    "type": "static_select",
+                    "action_id": "select_account",
+                    "placeholder": {
+                        "type": "plain_text",
+                        "text": "Select Account"
+                    },
+                    "options": [
+                        {
+                            "text": {
+                                "type": "plain_text",
+                                "text": "yoran.co.il"
+                            },
+                            "value": "value-1"
+                        }
+                    ]
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "Trials in progress: *COUNT*"
+                },
+                "accessory": {
+                    "type": "static_select",
+                    "action_id": "select_account",
+                    "placeholder": {
+                        "type": "plain_text",
+                        "text": "Select Account"
+                    },
+                    "options": [
+                        {
+                            "text": {
+                                "type": "plain_text",
+                                "text": "yoran.co.il"
+                            },
+                            "value": "value-1"
+                        }
+                    ]
+                }
+            },
+            {
+                "dispatch_action": true,
+                "type": "input",
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "account_search"
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": "Search for account:",
+                    "emoji": true
+                }
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "action_id": "abort_action",
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": ":x: END SESSION :x:"
+                        },
+                        "value": "abort_config"
+                    }
+                ]
+            }
+        ]
+    }
+    
+    

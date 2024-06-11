@@ -14,6 +14,9 @@ class Vars(BaseSettings):
     extend_poc_7_days: str = Field(env="EXTEND_POC_7_DAYS")
     extend_poc_2_days: str = Field(env="EXTEND_POC_2_DAYS")
     change_tier: str = Field(env="CHANGE_TIER")
+    trial_started_last_7_days: str = Field(env="TRIAL_STARTED_LAST_7_DAYS")
+    trial_about_end: str = Field(env="TRIAL_ABOUT_END")
+    trial_in_progress: str = Field(env="TRIAL_IN_PROGRESS")
 
 
 
