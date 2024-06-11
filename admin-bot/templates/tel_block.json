@@ -81,7 +81,7 @@
                         }
                     ]
                 }
-            },
+            },           
             {
                 "dispatch_action": true,
                 "type": "input",
