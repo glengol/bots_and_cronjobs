@@ -345,7 +345,7 @@ def abort_action(user_id: str, channel_id: str, say, ack):
                "level": "INFO"})
 
     utility.remove(admin_list, user_id)  # removes value from admin list
-    say("An active configuration was successfully aborted , to reconfigure use !<account> or ?<number>")
+    say("You have successfully aborted the session.\nTo start a new session, please type: start")
 
 @app.event("reaction_added")
 def handle_reaction_added_events(ack):
