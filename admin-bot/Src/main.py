@@ -31,7 +31,7 @@ admin_list = utility.make_admin_list(variables.admin_list_var)
 active_list = []
 
 
-def configure_instance(message: {}, say, num: int):
+def configure_instance(message: {} ,say, num: int):
     """
     Start a new configuration (instance)
     :param message: The message that was picked up by the listener
@@ -42,9 +42,9 @@ def configure_instance(message: {}, say, num: int):
     # parse the account name to use an action on
     name = utility.parse_account_name(text, num)
     # check if user has permissions
-    if message.get('user') not in admin_list:
-        say(f"<@{message.get('user')}> you don't have permission to use the app!")
-        return
+    # if message.get('user') not in admin_list:
+    #     say(f"<@{message.get('user')}> you don't have permission to use the app!")
+    #     return
     # if an empty string was provided
     if name == "":
         say(f"<@{message.get('user')}> Please enter a valid input!")
@@ -77,7 +77,50 @@ def configure_instance(message: {}, say, num: int):
                        "text": message,
                        "level": "INFO"})
 
+def configure_telemetry_instance(message: {}, say, num: int):
+    """
+    Start a new configuration (instance)
+    :param message: The message that was picked up by the listener
+    :param say: Specifying the use of the Slack function say()
+    :param num: if num == 0 then a string will be queried if == 1 a number will be queried
+    """
+    # check if user has permissions
+    if message.get('user') not in admin_list:
+        say(f"<@{message.get('user')}> you don't have permission to use the app!")
+        return
+    # adds user to list of users that have active configurations
+    if message.get('user') in active_list:
+        say(f"<@{message.get('user')}> Your current session is active. To start a new session, click on the END "
+            f"SESSION button or type ‘end’")
+        return
+    
+    # makes an API request to Retool that returns trial_started_last_7_days
+    response_7_days = requests.get(variables.trial_started_last_7_days)
+    response_about_end = requests.get(variables.trial_about_end)
+    response_in_progress = requests.get(variables.trial_in_progress)
+    # parse it into json
+    request_7_days = response_7_days.json()
+    request_about_end = response_about_end.json()
+    request_in_progress = response_in_progress.json()
 
+    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'))
+    if m == {}:  # if no results were returned
+        say("No search results found , please try again")
+        return
+    # adds user to list of users that have active configurations
+    active_list.append(message.get('user'))
+    # send the message to the channel
+    say(m)
+    curr_message = client.conversations_history(channel=message.get('channel'), inclusive=True, latest=str(time()),
+                                                limit=1)
+    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_7_days, message)
+    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_about_end, message)
+    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_in_progress, message)
+    
+    logger.info(f"Function configure_instance() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}",
+                extra={"user_id": message.get("user"),
+                       "text": message,
+                       "level": "INFO"})
 
 @app.message()  # configure bot to do a command
 def query_name(message: {}, say, ack, user_id: str, channel_id: str):
@@ -89,10 +132,13 @@ def query_name(message: {}, say, ack, user_id: str, channel_id: str):
     :param user_id: Id of the message sender
     :param channel_id:  Id of the channel the message was sent in
     """
+    
     if message.get('text', {})[0] == '!':
         configure_instance(message, say, 0)
     elif message.get('text', {})[0] == '?':
         configure_instance(message, say, 1)
+    elif message.get('text', {}) == "start":
+        configure_telemetry_instance(message, say, 0)
     else:
         try:
             if message.get('text', {}).index('end') == 0:
@@ -108,7 +154,6 @@ def query_name(message: {}, say, ack, user_id: str, channel_id: str):
         extra={"user_id": user_id,
                "text": message.get('text'),
                "level": "INFO"})
-
 
 @app.action("select_account")
 def select_account(action: {}, ack, say, user_id: str, channel_id: str):
@@ -166,7 +211,12 @@ def select_account(action: {}, ack, say, user_id: str, channel_id: str):
         extra={"user_id": user_id,
                "text": action.get("selected_option", {}).get("text", {}).get("text"),
                "level": "INFO"})
-
+    
+@app.action("account_search")
+def account_search(ack, body, logger):
+    ack()
+    # Extract the input value from the modal
+    logger.info(body)
 
 @app.action("select_action")
 def select_action(action: {}, ack, user_id: str):
@@ -183,7 +233,6 @@ def select_action(action: {}, ack, user_id: str):
         extra={"user_id": user_id,
                "text": utility.get_item(admin_list, user_id, 'Action'),
                "level": "INFO"})
-
 
 @app.action("execute_action")
 def execute_action(user_id: str, say, ack):
@@ -251,7 +300,6 @@ def execute_action(user_id: str, say, ack):
         extra={"user_id": user_id,
                "level": "INFO"})
 
-
 @app.action("abort_action")
 def abort_action(user_id: str, channel_id: str, say, ack):
     """
@@ -298,7 +346,6 @@ def abort_action(user_id: str, channel_id: str, say, ack):
 
     utility.remove(admin_list, user_id)  # removes value from admin list
     say("An active configuration was successfully aborted , to reconfigure use !<account> or ?<number>")
-
 
 @app.event("reaction_added")
 def handle_reaction_added_events(ack):

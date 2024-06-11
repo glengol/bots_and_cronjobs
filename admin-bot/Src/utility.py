@@ -1,14 +1,15 @@
+# main.py uses functions from here
 import json
 import logging
 
 FREE_TIER = "FREE_TIER"
 PREMIUM_TRIAL = "PREMIUM_TRIAL"
 ENTERPRISE = "ENTERPRISE"
-TEMPLATE_STATE = "./templates/state.json"
-TEMPLATE_ACTIONS = "./templates/actions.json"
-TEMPLATE_BUTTONS = "./templates/buttons.json"
-TEMPLATE_BLOCK = "./templates/block.json"
-
+TEMPLATE_STATE = "/Users/sapircohen/Desktop/product-projects/admin-bot/templates/state.json"
+TEMPLATE_ACTIONS = "/Users/sapircohen/Desktop/product-projects/admin-bot/templates/actions.json"
+TEMPLATE_BUTTONS = "/Users/sapircohen/Desktop/product-projects/admin-bot/templates/buttons.json"
+TEMPLATE_BLOCK = "/Users/sapircohen/Desktop/product-projects/admin-bot/templates/block.json"
+TEMPLATE_TEL_BLOCK = "/Users/sapircohen/Desktop/product-projects/admin-bot/templates/tel_block.json"
 
 def parse_account_name(text: str, num: int) -> str:
     """
@@ -16,6 +17,9 @@ def parse_account_name(text: str, num: int) -> str:
     :param text: The text of the message that was sent
     :param num: The number that represents which command should take place
     :return: The value to be queried in Retool
+
+    example:
+    text = "Hello!world example", num = 0 - will be returned "world"
     """
     temp = ""
     for i in range(text.index("!" if num == 0 else "?") + 1, len(text)):
@@ -31,6 +35,22 @@ def get_options(arr: []) -> []:
     gets all options and puts them in order
     :param arr: All the accounts that were returned from Retool
     :return: returns the "options" results within the desired slack block with the queried account included
+
+    Sapir: options = account results
+        example:
+        arr = [
+        ["acc123", "Google"],
+        ["acc456", "Microsoft"],
+        ["acc789", "Apple"]
+        ]
+
+        it will return:
+        [
+        {'text': {'type': 'plain_text', 'text': 'Google'}, 'value': 'value-0'},
+        {'text': {'type': 'plain_text', 'text': 'Microsoft'}, 'value': 'value-1'},
+        {'text': {'type': 'plain_text', 'text': 'Apple'}, 'value': 'value-2'}
+        ]
+
     """
     results = []
     try:
@@ -43,6 +63,7 @@ def get_options(arr: []) -> []:
         return
 
     return results
+
 
 
 def make_block(arr: [], name: str) -> json:
@@ -61,6 +82,38 @@ def make_block(arr: [], name: str) -> json:
         data['blocks'][2]['accessory']['options'] = options
         return data
 
+def adjusted_count(arr):
+    return 0 if arr[0][0] == '-' else len(arr)
+
+def make_tel_block(arr_7_days: [], arr_about_end: [], arr_in_progress: []) -> json:
+    """
+    creates the Slack text block that will be posted after configuration is complete
+    :param arr: All the trials that were returned from Retool
+    :param total: The total amount of trials that were returned
+    :return: returns a json Slack block that will be sent to Slack
+    """
+    with open(TEMPLATE_TEL_BLOCK, 'r+') as f:
+        data = json.load(f)
+        options_7_days = get_options(arr_7_days)
+        options_about_end = get_options(arr_about_end)
+        options_in_progress = get_options(arr_in_progress)
+
+        if not options_7_days or not options_about_end or not options_in_progress:
+            return {}
+    
+        count_7_days = adjusted_count(arr_7_days)
+        count_about_end = adjusted_count(arr_about_end)
+        count_in_progress = adjusted_count(arr_in_progress)
+
+        data['blocks'][2]['text']['text'] = f"*Trials started in the last 7 days:* *{count_7_days}*"
+        data['blocks'][2]['accessory']['options'] = options_7_days
+        
+        data['blocks'][3]['text']['text'] = f"*Trials about to end:* *{count_about_end}*"
+        data['blocks'][3]['accessory']['options'] = options_about_end
+        
+        data['blocks'][4]['text']['text'] = f"*Trials in progress:* *{count_in_progress}*"
+        data['blocks'][4]['accessory']['options'] = options_in_progress
+        return data
 
 def update_block(values: {}) -> json:
     """
@@ -68,7 +121,7 @@ def update_block(values: {}) -> json:
     :param values: The values of the account. Returned from a Retool API request
     :return: returns an updated action message JSON
     """
-    with open(TEMPLATE_STATE, 'r+') as f:
+    with open(TEMPLATE_STATE, 'r+') as f: #opens the file in read+write mode
         data = json.load(f)
         tier = values.get('tier_type')
         active = values.get('active')
@@ -105,7 +158,7 @@ def update_block(values: {}) -> json:
     return data
 
 
-def filter_function(index, name):
+def filter_function(index, name): #Unnecessery function
     if index[1] == name:
         return index[0]
     return ""
