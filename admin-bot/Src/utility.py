@@ -3,13 +3,16 @@ import json
 import logging
 
 FREE_TIER = "FREE_TIER"
-PREMIUM_TRIAL = "PREMIUM_TRIAL"
 ENTERPRISE = "ENTERPRISE"
-TEMPLATE_STATE = "/Users/sapircohen/Desktop/product-projects/admin-bot/templates/state.json"
-TEMPLATE_ACTIONS = "/Users/sapircohen/Desktop/product-projects/admin-bot/templates/actions.json"
-TEMPLATE_BUTTONS = "/Users/sapircohen/Desktop/product-projects/admin-bot/templates/buttons.json"
-TEMPLATE_BLOCK = "/Users/sapircohen/Desktop/product-projects/admin-bot/templates/block.json"
-TEMPLATE_TEL_BLOCK = "/Users/sapircohen/Desktop/product-projects/admin-bot/templates/tel_block.json"
+PREMIUM_TRIAL = "PREMIUM_TRIAL"
+
+PATH_TO_LOCAL_PROJECT="/Users/eranbibi/GitProjects/product-projects/admin-bot"
+
+TEMPLATE_STATE = PATH_TO_LOCAL_PROJECT + "/templates/state.json"
+TEMPLATE_ACTIONS = PATH_TO_LOCAL_PROJECT + "/templates/actions.json"
+TEMPLATE_BUTTONS = PATH_TO_LOCAL_PROJECT + "/templates/buttons.json"
+TEMPLATE_BLOCK = PATH_TO_LOCAL_PROJECT + "/templates/block.json"
+TEMPLATE_TEL_BLOCK = PATH_TO_LOCAL_PROJECT + "/templates/tel_block.json"
 
 def parse_account_name(text: str, num: int) -> str:
     """

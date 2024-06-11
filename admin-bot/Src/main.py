@@ -31,47 +31,47 @@ admin_list = utility.make_admin_list(variables.admin_list_var)
 active_list = []
 
 
-def configure_instance(message: {} ,say, num: int):
+def configure_instance(message: {} ,account, say, num: int):
     """
     Start a new configuration (instance)
     :param message: The message that was picked up by the listener
     :param say: Specifying the use of the Slack function say()
     :param num: if num == 0 then a string will be queried if == 1 a number will be queried
     """
-    text = message.get('text')
+    ##text = message.get('text')
     # parse the account name to use an action on
-    name = utility.parse_account_name(text, num)
+    ##name = utility.parse_account_name(text, num)
     # check if user has permissions
     # if message.get('user') not in admin_list:
     #     say(f"<@{message.get('user')}> you don't have permission to use the app!")
     #     return
     # if an empty string was provided
-    if name == "":
-        say(f"<@{message.get('user')}> Please enter a valid input!")
-        return
-    # adds user to list of users that have active configurations
-    elif message.get('user') in active_list:
-        say(f"<@{message.get('user')}> Your current session is active. To start a new session, click on the END "
-            f"SESSION button or type ‘end’")
-        return
+ #   if account == "":
+ #       say(f"<@{message.get('user')}> Please enter a valid input!")
+ #       return
+ #   # adds user to list of users that have active configurations
+ #   elif message.get('user') in active_list:
+ #       say(f"<@{message.get('user')}> Your current session is active. To start a new session, click on the END "
+ #           f"SESSION button or type ‘end’")
+ #       return
     # makes an API request to Retool that returns all accounts
     response = requests.get(variables.return_account,
-                            data={'accountName': name, "num": num})
+                            data={'accountName': account, "num": num})
 
     # that contain the string "name"
     request = response.json()
 
-    m = utility.make_block(request.get('results'), name)
+    m = utility.make_block(request.get('results'), account)
     if m == {}:  # if no results were returned
         say("No search results found , please try again")
         return
     # adds user to list of users that have active configurations
-    active_list.append(message.get('user'))
+#    active_list.append(message.get('user'))
     # send the message to the channel
     say(m)
-    curr_message = client.conversations_history(channel=message.get('channel'), inclusive=True, latest=str(time()),
-                                                limit=1)
-    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request, message)
+#    curr_message = client.conversations_history(channel=message.get('channel'), inclusive=True, latest=str(time()),
+#                                                limit=1)
+#    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request, message)
     logger.info(f"Function configure_instance() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}",
                 extra={"user_id": message.get("user"),
                        "text": message,
@@ -122,6 +122,13 @@ def configure_telemetry_instance(message: {}, say, num: int):
                        "text": message,
                        "level": "INFO"})
 
+@app.action("account_search")
+def handle_some_action(message: {}, ack, body, logger, say):
+    ack()
+    global account
+    account = body['actions'][0]['value'].lower()
+    configure_instance(message, account, say, 0)
+
 @app.message()  # configure bot to do a command
 def query_name(message: {}, say, ack, user_id: str, channel_id: str):
     """
@@ -133,11 +140,7 @@ def query_name(message: {}, say, ack, user_id: str, channel_id: str):
     :param channel_id:  Id of the channel the message was sent in
     """
     
-    if message.get('text', {})[0] == '!':
-        configure_instance(message, say, 0)
-    elif message.get('text', {})[0] == '?':
-        configure_instance(message, say, 1)
-    elif message.get('text', {}) == "start":
+    if message.get('text', {}).lower() == "start":
         configure_telemetry_instance(message, say, 0)
     else:
         try:
@@ -211,12 +214,6 @@ def select_account(action: {}, ack, say, user_id: str, channel_id: str):
         extra={"user_id": user_id,
                "text": action.get("selected_option", {}).get("text", {}).get("text"),
                "level": "INFO"})
-    
-@app.action("account_search")
-def account_search(ack, body, logger):
-    ack()
-    # Extract the input value from the modal
-    logger.info(body)
 
 @app.action("select_action")
 def select_action(action: {}, ack, user_id: str):
@@ -354,7 +351,6 @@ def handle_reaction_added_events(ack):
     :param ack: Sending acknowledgement to Slack
     """
     ack()
-
 
 def main():
     """
