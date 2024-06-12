@@ -1,4 +1,5 @@
 import os
+import signal
 from pydantic import Field
 from slack_sdk import WebClient
 from slack_bolt import App
@@ -30,133 +31,56 @@ admin_list = utility.make_admin_list(variables.admin_list_var)
 # list of users who have a running configuration
 active_list = []
 
+def kill_server(message: {}):
+    logger.info(f"Trigger self destruct funcion kill_server by user {app.client.users_info(user=message.get('user')).get('user').get('name')}")    
+    os._exit(0)
 
-def configure_instance(message: {} ,account, say, num: int):
+@app.action("abort_action")
+def abort_action(user_id: str, channel_id: str, say, ack):
     """
-    Start a new configuration (instance)
-    :param message: The message that was picked up by the listener
-    :param say: Specifying the use of the Slack function say()
-    :param num: if num == 0 then a string will be queried if == 1 a number will be queried
-    """
-    ##text = message.get('text')
-    # parse the account name to use an action on
-    ##name = utility.parse_account_name(text, num)
-    # check if user has permissions
-    # if message.get('user') not in admin_list:
-    #     say(f"<@{message.get('user')}> you don't have permission to use the app!")
-    #     return
-    # if an empty string was provided
- #   if account == "":
- #       say(f"<@{message.get('user')}> Please enter a valid input!")
- #       return
- #   # adds user to list of users that have active configurations
- #   elif message.get('user') in active_list:
- #       say(f"<@{message.get('user')}> Your current session is active. To start a new session, click on the END "
- #           f"SESSION button or type ‘end’")
- #       return
-    # makes an API request to Retool that returns all accounts
-    response = requests.get(variables.return_account,
-                            data={'accountName': account, "num": num})
-
-    # that contain the string "name"
-    request = response.json()
-
-    m = utility.make_block(request.get('results'), account)
-    if m == {}:  # if no results were returned
-        say("No search results found , please try again")
-        return
-    # adds user to list of users that have active configurations
-#    active_list.append(message.get('user'))
-    # send the message to the channel
-    say(m)
-#    curr_message = client.conversations_history(channel=message.get('channel'), inclusive=True, latest=str(time()),
-#                                                limit=1)
-#    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request, message)
-    logger.info(f"Function configure_instance() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}",
-                extra={"user_id": message.get("user"),
-                       "text": message,
-                       "level": "INFO"})
-
-def configure_telemetry_instance(message: {}, say, num: int):
-    """
-    Start a new configuration (instance)
-    :param message: The message that was picked up by the listener
-    :param say: Specifying the use of the Slack function say()
-    :param num: if num == 0 then a string will be queried if == 1 a number will be queried
-    """
-    # check if user has permissions
-    if message.get('user') not in admin_list:
-        say(f"<@{message.get('user')}> you don't have permission to use the app!")
-        return
-    # adds user to list of users that have active configurations
-    if message.get('user') in active_list:
-        say(f"<@{message.get('user')}> Your current session is active. To start a new session, click on the END "
-            f"SESSION button or type ‘end’")
-        return
-    
-    # makes an API request to Retool that returns trial_started_last_7_days
-    response_7_days = requests.get(variables.trial_started_last_7_days)
-    response_about_end = requests.get(variables.trial_about_end)
-    response_in_progress = requests.get(variables.trial_in_progress)
-    # parse it into json
-    request_7_days = response_7_days.json()
-    request_about_end = response_about_end.json()
-    request_in_progress = response_in_progress.json()
-
-    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'))
-    if m == {}:  # if no results were returned
-        say("No search results found , please try again")
-        return
-    # adds user to list of users that have active configurations
-    active_list.append(message.get('user'))
-    # send the message to the channel
-    say(m)
-    curr_message = client.conversations_history(channel=message.get('channel'), inclusive=True, latest=str(time()),
-                                                limit=1)
-    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_7_days, message)
-    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_about_end, message)
-    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_in_progress, message)
-    
-    logger.info(f"Function configure_instance() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}",
-                extra={"user_id": message.get("user"),
-                       "text": message,
-                       "level": "INFO"})
-
-@app.action("account_search")
-def handle_some_action(message: {}, ack, body, logger, say):
-    ack()
-    global account
-    account = body['actions'][0]['value'].lower()
-    configure_instance(message, account, say, 0)
-
-@app.message()  # configure bot to do a command
-def query_name(message: {}, say, ack, user_id: str, channel_id: str):
-    """
-    Configures the bot according to user input
-    :param message: The message that was picked up by the listener
+    Aborts an action
+    :param user_id: Id of the action initiator
+    :param channel_id: The channel the action was initiated in
     :param say: Specifying the use of the Slack function say()
     :param ack: Sending acknowledgement to Slack
-    :param user_id: Id of the message sender
-    :param channel_id:  Id of the channel the message was sent in
+    :exception: If failed to delete messages , raises an exception
     """
-    
-    if message.get('text', {}).lower() == "start":
-        configure_telemetry_instance(message, say, 0)
-    else:
+    username = app.client.users_info(user=user_id).get('user').get('real_name')
+    ack()
+    if admin_list[user_id] == "":
+        say("You don't have any active sessions.")
+        return
+    say("Aborting...")
+    # delete accounts message
+    try:
+        app.client.chat_delete(token=key, channel=channel_id, ts=utility.get_item(admin_list, user_id, "Timestamp"))
+    except SlackApiError as e:
+        logger.error(
+            f"failed in function abort_action() for user {app.client.users_info(user=user_id).get('user').get('name')}",
+            extra={"user_id": user_id,
+                   "text": e,
+                   "level": "ERROR"})
+        return
+
+    # removes user from active list
+    active_list.remove(user_id)
+    if utility.get_item(admin_list, user_id, "Prev") != "":  # delete leftover messages
         try:
-            if message.get('text', {}).index('end') == 0:
-                abort_action(user_id, channel_id, say, ack)
-        except ValueError:  # if 'end' was not found , handle ValueError exception
-            try:
-                if message.get('text', {}).index('End') == 0:
-                    abort_action(user_id, channel_id, say, ack)
-            except ValueError:
-                pass
+            app.client.chat_delete(token=key, channel=channel_id, ts=utility.get_item(admin_list, user_id, "Prev"))
+        except SlackApiError as e:
+            logger.error(
+                f"failed in function abort_action() for user {app.client.users_info(user=user_id).get('user').get('name')}",
+                extra={"user_id": user_id,
+                       "text": e,
+                       "level": "ERROR"})
+            return
     logger.info(
-        f"Function query_name() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}",
+        f"Exited successfully from function abort_action() for user {username}",
         extra={"user_id": user_id,
-               "text": message.get('text'),
                "level": "INFO"})
+
+    utility.remove(admin_list, user_id)  # removes value from admin list
+    say("You have successfully aborted the session.\nTo start a new session, please type: start")
 
 @app.action("select_account")
 def select_account(action: {}, ack, say, user_id: str, channel_id: str):
@@ -297,53 +221,6 @@ def execute_action(user_id: str, say, ack):
         extra={"user_id": user_id,
                "level": "INFO"})
 
-@app.action("abort_action")
-def abort_action(user_id: str, channel_id: str, say, ack):
-    """
-    Aborts an action
-    :param user_id: Id of the action initiator
-    :param channel_id: The channel the action was initiated in
-    :param say: Specifying the use of the Slack function say()
-    :param ack: Sending acknowledgement to Slack
-    :exception: If failed to delete messages , raises an exception
-    """
-    username = app.client.users_info(user=user_id).get('user').get('real_name')
-    ack()
-    if admin_list[user_id] == "":
-        say("You don't have any active sessions.")
-        return
-    say("Aborting...")
-    # delete accounts message
-    try:
-        app.client.chat_delete(token=key, channel=channel_id, ts=utility.get_item(admin_list, user_id, "Timestamp"))
-    except SlackApiError as e:
-        logger.error(
-            f"failed in function abort_action() for user {app.client.users_info(user=user_id).get('user').get('name')}",
-            extra={"user_id": user_id,
-                   "text": e,
-                   "level": "ERROR"})
-        return
-
-    # removes user from active list
-    active_list.remove(user_id)
-    if utility.get_item(admin_list, user_id, "Prev") != "":  # delete leftover messages
-        try:
-            app.client.chat_delete(token=key, channel=channel_id, ts=utility.get_item(admin_list, user_id, "Prev"))
-        except SlackApiError as e:
-            logger.error(
-                f"failed in function abort_action() for user {app.client.users_info(user=user_id).get('user').get('name')}",
-                extra={"user_id": user_id,
-                       "text": e,
-                       "level": "ERROR"})
-            return
-    logger.info(
-        f"Exited successfully from function abort_action() for user {username}",
-        extra={"user_id": user_id,
-               "level": "INFO"})
-
-    utility.remove(admin_list, user_id)  # removes value from admin list
-    say("You have successfully aborted the session.\nTo start a new session, please type: start")
-
 @app.event("reaction_added")
 def handle_reaction_added_events(ack):
     """
@@ -351,6 +228,73 @@ def handle_reaction_added_events(ack):
     :param ack: Sending acknowledgement to Slack
     """
     ack()
+
+def account_search_result(message: {} ,account, say, num: int):
+
+    response = requests.get(variables.return_account,
+                            data={'accountName': account, "num": num})
+    request = response.json()
+    m = utility.make_block(request.get('results'), account)
+    if m == {}:  # if no results were returned
+        say("No search results found , please try again")
+        return
+    say(m)
+
+@app.action("account_search")
+def handle_some_action(message: {}, ack, body, logger, say):
+    ack()
+    global account
+    account = body['actions'][0]['value'].lower()
+    account_search_result(message, account, say, 0)
+
+def main_menu(message: {}, say, num: int):
+
+    # adds user to list of users that have active configurations
+    if message.get('user') in active_list:
+        say(f"<@{message.get('user')}> Your current session is active. To start a new session, click on the END "
+            f"SESSION button or type ‘end’")
+        return
+    
+    # makes an API request to Retool that returns trial_started_last_7_days
+    response_7_days = requests.get(variables.trial_started_last_7_days)
+    response_about_end = requests.get(variables.trial_about_end)
+    response_in_progress = requests.get(variables.trial_in_progress)
+    # parse it into json
+    request_7_days = response_7_days.json()
+    request_about_end = response_about_end.json()
+    request_in_progress = response_in_progress.json()
+
+    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'))
+    if m == {}:  # if no results were returned
+        say("No search results found , please try again")
+        return
+    # adds user to list of users that have active configurations
+    active_list.append(message.get('user'))
+    # send the message to the channel
+    say(m)
+    curr_message = client.conversations_history(channel=message.get('channel'), inclusive=True, latest=str(time()),
+                                                limit=1)
+    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_7_days, message)
+    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_about_end, message)
+    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_in_progress, message)
+    
+    logger.info(f"Function main_menu() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}")
+
+@app.message() 
+def get_chat_message(message: {}, say, ack, user_id: str, channel_id: str):
+    
+    if message.get('text', {}).lower() == "start":
+        main_menu(message, say, 0)
+    elif message.get('text', {}).lower() == "end":
+        abort_action(user_id, channel_id, say, ack)
+    elif message.get('text', {}).lower() == "kill":
+        kill_server(message)
+    else:
+        say("Welcome to Telefly Admin-Bot. Type 'start' to get started.")
+
+    logger.info(
+        f"Function get_chat_message() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}",
+        extra={"chat message": message.get('text')})
 
 def main():
     """

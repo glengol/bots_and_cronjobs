@@ -6,7 +6,7 @@ FREE_TIER = "FREE_TIER"
 ENTERPRISE = "ENTERPRISE"
 PREMIUM_TRIAL = "PREMIUM_TRIAL"
 
-PATH_TO_LOCAL_PROJECT="."
+PATH_TO_LOCAL_PROJECT="/Users/eranbibi/GitProjects/product-projects/admin-bot"
 
 TEMPLATE_STATE = PATH_TO_LOCAL_PROJECT + "/templates/state.json"
 TEMPLATE_ACTIONS = PATH_TO_LOCAL_PROJECT + "/templates/actions.json"
@@ -31,7 +31,6 @@ def parse_account_name(text: str, num: int) -> str:
             break
         temp += text[i]
     return temp
-
 
 def get_options(arr: []) -> []:
     """
@@ -66,8 +65,6 @@ def get_options(arr: []) -> []:
         return
 
     return results
-
-
 
 def make_block(arr: [], name: str) -> json:
     """
@@ -160,12 +157,10 @@ def update_block(values: {}) -> json:
             data["blocks"].append(json.load(f2))
     return data
 
-
 def filter_function(index, name): #Unnecessery function
     if index[1] == name:
         return index[0]
     return ""
-
 
 def get_id(data: [], name: str) -> str:
     """
@@ -179,7 +174,6 @@ def get_id(data: [], name: str) -> str:
             return data['results'][i][0]
     return ""
 
-
 def get_tier(slack_formatted_tier: str) -> str:
     """
     :param slack_formatted_tier: The tier's name with emojis , to be parsed
@@ -188,7 +182,6 @@ def get_tier(slack_formatted_tier: str) -> str:
     dictionary = {":hut: FREE TIER :hut:": FREE_TIER, ":office: ENTERPRISE :office:": ENTERPRISE,
                   ":house: PREMIUM TRIAL :house:": PREMIUM_TRIAL}
     return dictionary.get(slack_formatted_tier)
-
 
 def add_user_info(user_list: {}, user: str, timestamp: str, request: json, message: json):
     """
@@ -202,7 +195,6 @@ def add_user_info(user_list: {}, user: str, timestamp: str, request: json, messa
     # adds the slack information dictionary to the general information dictionary
     user_list[user] = {"Timestamp": timestamp, "Request": request, "Account": "", "Action": "", "Prev": "", "Message": message}
 
-
 def update(user_list: {}, user: str, subdir: str, val: str):
     """
     Updates a value in a subdirectory in user_list
@@ -213,7 +205,6 @@ def update(user_list: {}, user: str, subdir: str, val: str):
     """
     user_list.get(user, {})[subdir] = val
 
-
 def get_item(user_list: {}, user: str, subdir: str) -> str:
     """
     :param user_list: The dictionary of the users.
@@ -223,7 +214,6 @@ def get_item(user_list: {}, user: str, subdir: str) -> str:
     """
     return user_list.get(user, {}).get(subdir)
 
-
 def remove(user_list: {}, user: str):
     """
     Removes information from the user. Used upon configuration abortion
@@ -231,7 +221,6 @@ def remove(user_list: {}, user: str):
     :param user: The Id of the user
     """
     user_list[user] = ""
-
 
 def make_admin_list(s: str) -> {}:
     """
