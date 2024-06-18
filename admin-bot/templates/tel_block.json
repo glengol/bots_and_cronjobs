@@ -4,7 +4,7 @@
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": ":rocket: Telemetry :rocket:"
+                    "text": ":rocket: Trials status :rocket:"
                 }
             },
             {
@@ -14,7 +14,7 @@
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "*Trials started in the last 7 days:* *COUNT*"
+                    "text": "*Started in the last 7 days:* *COUNT*"
                 },
                 "accessory": {
                     "type": "static_select",
@@ -38,7 +38,7 @@
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "*Trials about to end*"
+                    "text": "*About to end*"
                 },
                 "accessory": {
                     "type": "static_select",
@@ -62,7 +62,7 @@
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "Trials in progress: *COUNT*"
+                    "text": "In progress: *COUNT*"
                 },
                 "accessory": {
                     "type": "static_select",

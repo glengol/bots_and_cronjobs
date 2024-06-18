@@ -40,14 +40,6 @@
                             },
                             "value": "value-2"
                     },
-                    
-                    {
-                            "text": {
-                                    "type": "plain_text",
-                                    "text": ":hut: FREE TIER :hut:"
-                            },
-                            "value": "value-3"
-                    },
                     {
                             "text": {
                                     "type": "plain_text",

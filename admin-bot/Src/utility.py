@@ -2,7 +2,6 @@
 import json
 import logging
 
-FREE_TIER = "FREE_TIER"
 ENTERPRISE = "ENTERPRISE"
 PREMIUM_TRIAL = "PREMIUM_TRIAL"
 
@@ -105,13 +104,13 @@ def make_tel_block(arr_7_days: [], arr_about_end: [], arr_in_progress: []) -> js
         count_about_end = adjusted_count(arr_about_end)
         count_in_progress = adjusted_count(arr_in_progress)
 
-        data['blocks'][2]['text']['text'] = f"*Trials started in the last 7 days:* *{count_7_days}*"
+        data['blocks'][2]['text']['text'] = f"*Started in the last 7 days:* *{count_7_days}*"
         data['blocks'][2]['accessory']['options'] = options_7_days
         
-        data['blocks'][3]['text']['text'] = f"*Trials about to end:* *{count_about_end}*"
+        data['blocks'][3]['text']['text'] = f"*About to end:* *{count_about_end}*"
         data['blocks'][3]['accessory']['options'] = options_about_end
         
-        data['blocks'][4]['text']['text'] = f"*Trials in progress:* *{count_in_progress}*"
+        data['blocks'][4]['text']['text'] = f"*in progress:* *{count_in_progress}*"
         data['blocks'][4]['accessory']['options'] = options_in_progress
         return data
 
@@ -127,30 +126,73 @@ def update_block(values: {}) -> json:
         active = values.get('active')
         #  show active status
         data["blocks"][0]["text"]["text"] = f"Statistics for account: {values.get('name')}"
-        data.get("blocks").append({"type": "context",
-                                   "elements": [
-                                       {"type": "plain_text",
-                                        "text": f"Active: {':white_check_mark:' if values.get('active') else ':x:'}{str(values.get('active'))}"}]})
+        data.get("blocks").append(
+            {"type": "context",
+            "elements": [
+                {"type": "plain_text",
+                "text": f"Active: {str(values.get('active'))}{' :white_check_mark:' if values.get('active') else ' :x:'}"}
+            ]}
+        )
         # shows onboarding status
         data["blocks"][1].get("elements").append(
             {"type": "plain_text",
-             "text": f"Onboarding Status: {':ballot_box_with_check:' if values.get('onboarding_status') == 'done' else ':x:'}{str(values.get('onboarding_status'))}"})
-        # shows asset count
-        data["blocks"][1].get("elements").append(
-            {"type": "plain_text",
-             "text": f"Assets: :chart_with_upwards_trend:{values.get('asset_number')}"})
-        # shows asset count
-        data["blocks"][1].get("elements").append({"type": "plain_text",
-                                                  "text": f"License Age: :handshake:{values.get('license_age')}"})
-        # shows last activity
-        data["blocks"][1].get("elements").append(
-            {"type": "plain_text",
-             "text": f"Last Activity: :clock3:{values.get('last_activity')}"})
-        # shows tier
-        data["blocks"][1].get("elements").append(
-            {"type": "plain_text",
-             "text": f"Tier: {':hut:' if tier == FREE_TIER else ':house:' if tier == PREMIUM_TRIAL else ':office:'}{tier}{','}"})
+            "text": (
+                f"Onboarding Status: {str(values.get('onboarding_status'))}"
+                f"{' :ballot_box_with_check:' if values.get('onboarding_status') == 'done' else ' :x:'}"
+            )}
+        )
 
+        # shows asset count
+        data["blocks"][1].get("elements").append(
+            {"type": "plain_text",
+            "text": f"Assets: {values.get('asset_number')} :chart_with_upwards_trend:"}
+        )
+        # shows asset count
+        data["blocks"][1].get("elements").append(
+            {"type": "plain_text",
+            "text": f"License Age: {values.get('license_age')} :handshake:"}
+        )
+
+        # Shows last activity
+        data["blocks"][1].get("elements").append(
+            {"type": "plain_text",
+            "text": f"Last Activity: {values.get('last_activity')} :clock3:"}
+        )
+        # Shows total savings
+        data["blocks"][1].get("elements").append(
+            {"type": "plain_text",
+            "text": f"Total Savings: {values.get('total_savings')} :moneybag:"}
+        )
+        # Shows tier
+        data["blocks"][1].get("elements").append(
+            {"type": "plain_text",
+            "text": f"Tier: {tier} {':house:' if tier == 'PREMIUM_TRIAL' else ':office:'}"}
+        )
+
+        data["blocks"][1].get("elements").append(
+            {"type": "plain_text",
+            "text": (
+                " IaC Status: :o:\n"
+                f"Codified: {values.get('codified')}\n"
+                f"Drift: {values.get('drift')}\n"
+                f"Unmanaged: {values.get('unmanaged')}"
+            )
+            }
+        )
+
+
+        # data["blocks"][1].get("elements").append(
+        #     {"type": "plain_text",
+        #      "text": f"\n':o:' IaC Status:\n"})
+        # data["blocks"][1].get("elements").append(
+        #     {"type": "plain_text",
+        #      "text": f"Codified: {values.get('codified')}"})
+        # data["blocks"][1].get("elements").append(
+        #     {"type": "plain_text",
+        #      "text": f"Drift: {values.get('drift')}"})
+        # data["blocks"][1].get("elements").append(
+        #     {"type": "plain_text",
+        #      "text": f"Unmanaged: {values.get('unmanaged')}"})
         with open(TEMPLATE_ACTIONS, 'r+') as f1:
             data["blocks"].append(json.load(f1))
         with open(TEMPLATE_BUTTONS, 'r+') as f2:
@@ -179,7 +221,7 @@ def get_tier(slack_formatted_tier: str) -> str:
     :param slack_formatted_tier: The tier's name with emojis , to be parsed
     :return: returns parsed tier name (contains only the name)
     """
-    dictionary = {":hut: FREE TIER :hut:": FREE_TIER, ":office: ENTERPRISE :office:": ENTERPRISE,
+    dictionary = {":office: ENTERPRISE :office:": ENTERPRISE,
                   ":house: PREMIUM TRIAL :house:": PREMIUM_TRIAL}
     return dictionary.get(slack_formatted_tier)
 
