@@ -165,34 +165,39 @@ def execute_action(user_id: str, say, ack):
     """
     ack()
     name = utility.get_item(admin_list, user_id, "Account")
+    data = requests.get(variables.get_id,
+                            data={"id": "",
+                                  "name": client.users_info(user=user_id).get("user", {}).get("real_name"),
+                                  "url": name})
+    response_data = data.json()
     if utility.get_item(admin_list, user_id, "Action") == "" or utility.get_item(admin_list, user_id,
                                                                                  "Account") == "":  # makes sure both fields are selected
         say(f"<@{user_id}> Please make sure that you've selected an account and action!")
-
+    
     # execute suspend / activate / extend poc function
     elif utility.get_item(admin_list, user_id, "Action") == ":x: Suspend :x:" or \
             utility.get_item(admin_list, user_id, "Action") == ":white_check_mark: Activate :white_check_mark:":
 
         status = "false" if utility.get_item(admin_list, user_id, "Action") == ":x: Suspend :x:" else "true"
+
         #  makes an API request to Retool to suspend / activate
         requests.get(variables.suspend_activate,
-                     data={"id": utility.get_id(utility.get_item(admin_list, user_id, "Request"), name),
-                           "user": client.users_info(user=user_id).get("user", {}).get("real_name"),
-                           "name": name, "status": status})
+                     data={"id": response_data['id'],
+                           "user": response_data['name'],
+                           "name": response_data['url'],
+                            "status": status})
         # send confirmation message that the action successfully finished
         say(f"Account successfully {'suspended' if status == 'false' else 'activated'}. Please check "
             f"#account-mgmt-audit for more details")
-
-
 
     # execute extend POC 7 days
     elif utility.get_item(admin_list, user_id,
                           "Action") == ":hourglass_flowing_sand: Extend POC +7 days :hourglass_flowing_sand:":
         requests.get(
             variables.extend_poc_7_days,
-            data={"id": utility.get_id(utility.get_item(admin_list, user_id, "Request"), name),
-                  "name": client.users_info(user=user_id).get("user", {}).get("real_name"),
-                  "url": name})
+            data={"id": response_data['id'],
+                  "name": response_data['name'],
+                  "url": response_data['url']})
         # send confirmation message that the action successfully finished
         say(f"Account successfully extended POC +7 days. Please check #account-mgmt-audit for more details")
     
@@ -201,9 +206,9 @@ def execute_action(user_id: str, say, ack):
                           "Action") == ":hourglass_flowing_sand: Extend POC +2 days :hourglass_flowing_sand:":
         requests.get(
             variables.extend_poc_2_days,
-            data={"id": utility.get_id(utility.get_item(admin_list, user_id, "Request"), name),
-                  "name": client.users_info(user=user_id).get("user", {}).get("real_name"),
-                  "url": name})
+            data={"id": response_data['id'],
+                  "name": response_data['name'],
+                  "url": response_data['url']})
         # send confirmation message that the action successfully finished
         say(f"Account successfully extended POC +2 days. Please check #account-mgmt-audit for more details")
         # if user is going to change account tier

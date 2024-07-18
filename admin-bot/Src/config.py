@@ -17,6 +17,7 @@ class Vars(BaseSettings):
     trial_started_last_7_days: str = Field(env="TRIAL_STARTED_LAST_7_DAYS")
     trial_about_end: str = Field(env="TRIAL_ABOUT_END")
     trial_in_progress: str = Field(env="TRIAL_IN_PROGRESS")
+    get_id: str = Field(env="GET_ID")
 
 
 
