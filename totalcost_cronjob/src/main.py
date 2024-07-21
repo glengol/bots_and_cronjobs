@@ -68,7 +68,7 @@ def main():
             api_response = send_api_request(account_id)
 
             if api_response is not None:
-                multiplied_value = int(api_response * 12)
+                multiplied_value = float(api_response * 12)
                 logger.info(msg=f'The total cost for {account_id} is {multiplied_value}')
                 IsraelTz = pytz.timezone("Israel") 
                 timeInIsrael = datetime.now(IsraelTz)
