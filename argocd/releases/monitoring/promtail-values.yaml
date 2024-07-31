@@ -2,7 +2,7 @@
 # - operator: "Exists"
 config:
   clients:
-    - url: "https://loki-prod-us-old.gofirefly.io/loki/api/v1/push"
+    - url: "http://loki-distributed-gateway.loki.svc.cluster.local/loki/api/v1/push"
       external_labels:
         cluster: "product"
   snippets:
