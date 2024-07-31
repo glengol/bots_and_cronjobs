@@ -2,9 +2,10 @@
 # - operator: "Exists"
 config:
   clients:
-    - url: "http://loki-distributed-gateway.loki.svc.cluster.local/loki/api/v1/push"
+    - url: https://loki-us-east-1.firefly.ai/loki/api/v1/push
       external_labels:
-        cluster: "product"
+        cluster: product
+        region: us-east-1
   snippets:
     pipelineStages:
       - cri: {}
