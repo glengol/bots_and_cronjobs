@@ -5,7 +5,7 @@ import logging
 ENTERPRISE = "ENTERPRISE"
 PREMIUM_TRIAL = "PREMIUM_TRIAL"
 
-PATH_TO_LOCAL_PROJECT="."
+PATH_TO_LOCAL_PROJECT="/Users/sapircohen/Desktop/product-projects/admin-bot"
 
 TEMPLATE_STATE = PATH_TO_LOCAL_PROJECT + "/templates/state.json"
 TEMPLATE_ACTIONS = PATH_TO_LOCAL_PROJECT + "/templates/actions.json"

@@ -214,10 +214,10 @@ def execute_action(user_id: str, say, ack):
         # if user is going to change account tier
     else:
         requests.get(variables.change_tier,
-                     data={"id": utility.get_id(utility.get_item(admin_list, user_id, "Request"), name),
+                     data={"id": response_data['id'],
                            "status": utility.get_tier(utility.get_item(admin_list, user_id, "Action")),
-                           "name": client.users_info(user=user_id).get("user", {}).get("real_name"),
-                           "url": name})
+                           "name": response_data['name'],
+                           "url": response_data['url']})
         # send confirmation message that the action successfully finished
         say(f"Account successfully changed to {utility.get_tier(utility.get_item(admin_list, user_id, 'Action'))}. Please check"
             f" #account-mgmt-audit for more details")
