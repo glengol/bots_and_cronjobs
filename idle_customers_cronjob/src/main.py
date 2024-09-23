@@ -23,7 +23,7 @@ def send_report_to_slack(inactive_accounts_sorted):
     if not inactive_accounts_sorted:
         message = "No idle enterprise accounts found."
     else:
-        message = "Idle Customer Report:\n"
+        message = ":low_battery: Idle Customer Report :low_battery:\n"
         message += "```{:<30} {:<15}\n".format("Account Name", "Days Inactive")  # Headers without Account ID
         message += "-"*50 + "\n"  # Separator
         for account in inactive_accounts_sorted:
@@ -56,13 +56,26 @@ days_threshold = 14
 current_date = datetime.now()
 logger.info("Script started", extra={"days_threshold": days_threshold, "current_date": current_date})
 
+ignored_names = [
+    "apple.com", "axiom.security", "Skyhawk.security", "moonactive-traveltown", 
+    "robert-maury.com", "sportradar-production-engineering", "sportradar-devops", 
+    "barefootcoders.com", "nedinthecloud.com", "sportradar-av", "moonactive-zm", 
+    "moonactive-melsoft", "dailyhypervisor.com", "blueally.com", "comtech-CPSS", 
+    "comtech-ctl-eng-prod", "comtech-smsc", "comtech-scm", "comtech-cybr", 
+    "comtech-prod", "sportradar-odds", "sportradar-ads", "tamnoon.io"
+]
 # Query for enterprise accounts
 try:
     enterprise_accounts = collection.find({
         "tier_type": "ENTERPRISE",
-        "active": True
+        "active": True,
+        "name": {"$nin": ignored_names}
     }, {"_id": 1, "name": 1, "latest_activity": 1})
-    account_count = collection.count_documents({"tier_type": "ENTERPRISE"})
+    account_count = collection.count_documents({
+        "tier_type": "ENTERPRISE",
+        "name": {"$nin": ignored_names},
+        "active": True  # Include only active accounts
+    })
     logger.info("Enterprise accounts retrieved", extra={"account_count": account_count})
 except Exception as e:
     logger.error("Error querying MongoDB", extra={"error": str(e)})
