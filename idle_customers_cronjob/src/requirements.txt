@@ -1,0 +1,4 @@
+pymongo
+datetime
+python-json-logger
+requests
