@@ -20,10 +20,11 @@ SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 
 
 def send_report_to_slack(inactive_accounts_sorted):
+    current_date = datetime.now().strftime("%m/%d/%Y")
     if not inactive_accounts_sorted:
         message = "No idle enterprise accounts found."
     else:
-        message = ":low_battery: Idle Customer Report :low_battery:\n"
+        message = f":low_battery: Idle Customer Report {current_date} :low_battery:\n"
         message += "```{:<30} {:<15}\n".format("Account Name", "Days Inactive")  # Headers without Account ID
         message += "-"*50 + "\n"  # Separator
         for account in inactive_accounts_sorted:
