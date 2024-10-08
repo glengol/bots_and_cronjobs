@@ -58,12 +58,12 @@ current_date = datetime.now()
 logger.info("Script started", extra={"days_threshold": days_threshold, "current_date": current_date})
 
 ignored_names = [
-    "apple.com", "axiom.security", "Skyhawk.security", "moonactive-traveltown", 
-    "robert-maury.com", "sportradar-production-engineering", "sportradar-devops", 
-    "barefootcoders.com", "nedinthecloud.com", "sportradar-av", "moonactive-zm", 
-    "moonactive-melsoft", "dailyhypervisor.com", "blueally.com", "comtech-CPSS", 
-    "comtech-ctl-eng-prod", "comtech-smsc", "comtech-scm", "comtech-cybr", 
-    "comtech-prod", "sportradar-odds", "sportradar-ads", "tamnoon.io"
+    "apple.com", "axiom.security", "Skyhawk.security",
+    "robert-maury.com", "tamnoon.io", "blueally.com",
+    "barefootcoders.com", "nedinthecloud.com", "dailyhypervisor.com",
+    "moonactive-melsoft",  "moonactive-zm", "moonactive-traveltown", 
+    "comtech-CPSS", "comtech-ctl-eng-prod", "comtech-smsc", "comtech-scm", "comtech-cybr", "comtech-prod", 
+    "sportradar-production-engineering", "sportradar-devops", "sportradar-odds", "sportradar-av", "sportradar.com"
 ]
 # Query for enterprise accounts
 try:
