@@ -58,7 +58,7 @@ current_date = datetime.now()
 logger.info("Script started", extra={"days_threshold": days_threshold, "current_date": current_date})
 
 ignored_names = [
-    "apple.com", "axiom.security", "Skyhawk.security",
+    "apple.com", "acme", "axiom.security", "Skyhawk.security",
     "robert-maury.com", "tamnoon.io", "blueally.com",
     "barefootcoders.com", "nedinthecloud.com", "dailyhypervisor.com",
     "moonactive-melsoft",  "moonactive-zm", "moonactive-traveltown", 
