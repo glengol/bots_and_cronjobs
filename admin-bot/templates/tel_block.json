@@ -81,7 +81,33 @@
                         }
                     ]
                 }
-            },           
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": ":rocket: Sandbox status :rocket:"
+                }
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "Sandbox last 7 days: *COUNT*"
+                },
+                "accessory": {
+                    "type": "button",
+                    "action_id": "view_sandbox_details",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "View Details"
+                    },
+                    "value": "sandbox_details_last_7_days"
+                }
+            },
             {
                 "dispatch_action": true,
                 "type": "input",

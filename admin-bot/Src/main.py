@@ -1,10 +1,12 @@
 import os
 import signal
+import json
 from pydantic import Field
 from slack_sdk import WebClient
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from time import time
+from datetime import datetime, timedelta, timezone
 from slack_sdk.errors import SlackApiError
 import utility
 import requests
@@ -264,12 +266,17 @@ def main_menu(message: {}, say, num: int):
     response_7_days = requests.get(variables.trial_started_last_7_days)
     response_about_end = requests.get(variables.trial_about_end)
     response_in_progress = requests.get(variables.trial_in_progress)
+
+    sandbox_last_7_days = utility.get_users_created_in_last_seven_days()
+
+#    print(request_sandbox_last_7_days)
     # parse it into json
     request_7_days = response_7_days.json()
     request_about_end = response_about_end.json()
     request_in_progress = response_in_progress.json()
+    request_sandbox_last_7_days = sandbox_last_7_days
 
-    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'))
+    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'), sandbox_last_7_days)
     if m == {}:  # if no results were returned
         say("No search results found , please try again")
         return
@@ -283,6 +290,9 @@ def main_menu(message: {}, say, num: int):
     utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_about_end, message)
     utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_in_progress, message)
     
+    utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_sandbox_last_7_days, message)
+
+
     logger.info(f"Function main_menu() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}")
 
 @app.message() 
@@ -300,6 +310,53 @@ def get_chat_message(message: {}, say, ack, user_id: str, channel_id: str):
     logger.info(
         f"Function get_chat_message() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}",
         extra={"chat message": message.get('text')})
+########################################################################################################
+@app.event("block_actions")
+def handle_block_actions(payload):
+    action_id = payload['actions'][0]['action_id']
+
+    if action_id == "view_sandbox_details":
+        utility.handle_view_sandbox_details(payload)
+
+@app.action("view_sandbox_details")
+def handle_view_sandbox_details(ack, body, client):
+    """
+    Handles the 'View Details' button click and posts a CSV-formatted table.
+    """
+    ack()  # Acknowledge the action
+    
+    # Fetch users created in the last 7 days
+    arr_sandbox_last_7_days = utility.get_users_created_in_last_seven_days()  # Ensure this is defined
+    if not arr_sandbox_last_7_days:
+        message = "No sandbox users found in the last 7 days."
+    else:
+        # Prepare CSV header
+        csv_lines = ["Name,Email,Account,Created At"]
+        
+        # Add each user's details as a CSV row
+        for user in arr_sandbox_last_7_days:
+            name = user.get('name', 'N/A').replace(",", " ")  # Replace commas to avoid CSV issues
+            email = user.get('email', 'N/A').replace(",", " ")
+            account = user.get('app_metadata', {}).get('account_name', 'N/A').replace(",", " ")
+            created_at = user.get('created_at', 'N/A').replace(",", " ")
+            csv_lines.append(f"{name},{email},{account},{created_at}")
+        
+        # Combine all lines into a CSV message
+        message = "\n".join(csv_lines)
+    
+    # Post the CSV content to Slack
+    client.chat_postMessage(
+        channel=body['channel']['id'],
+        text="Here is the sandbox user data for the last 7 days:",
+        blocks=[
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"```\n{message}\n```"}
+            }
+        ]
+    )
+
+########################################################################################################
 
 def main():
     """

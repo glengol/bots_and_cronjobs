@@ -1,6 +1,11 @@
 # main.py uses functions from here
 import json
+import requests
 import logging
+from config import Vars
+from typing import List, Dict
+from datetime import datetime, timedelta, timezone
+
 
 ENTERPRISE = "ENTERPRISE"
 PREMIUM_TRIAL = "PREMIUM_TRIAL"
@@ -13,6 +18,158 @@ TEMPLATE_BUTTONS = PATH_TO_LOCAL_PROJECT + "/templates/buttons.json"
 TEMPLATE_BLOCK = PATH_TO_LOCAL_PROJECT + "/templates/block.json"
 TEMPLATE_TEL_BLOCK = PATH_TO_LOCAL_PROJECT + "/templates/tel_block.json"
 
+
+
+variables = Vars()
+
+# Generate a Management API token
+def get_management_token() -> str:
+    """
+    Get the management token from Auth0.
+    """
+    url = f'https://{variables.auth0_doamin}/oauth/token'
+    payload = {
+        'grant_type': 'client_credentials',
+        'client_id': variables.client_id,
+        'client_secret': variables.client_secret,
+        'audience': f'https://{variables.auth0_doamin}/api/v2/'
+    }
+    response = requests.post(url, json=payload)
+    response.raise_for_status()
+    return response.json()['access_token']
+
+def get_filtered_users(token: str) -> List[Dict]:
+    """
+    Retrieve all users from Auth0 that have an 'originalAccountId' in their metadata.
+    """
+    url = f'https://{variables.auth0_doamin}/api/v2/users'
+    headers = {'Authorization': f'Bearer {token}'}
+    params = {
+        'q': 'app_metadata.originalAccountId:*',  # Query for users with originalAccountId
+        'search_engine': 'v3',  # Use the Lucene search engine
+        'page': 0,
+        'per_page': 50  # Adjust page size as needed
+    }
+    users = []
+    while True:
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        if not data:
+            break
+        users.extend(data)
+        params['page'] += 1
+    return users
+
+def filter_last_seven_days(users: List[Dict]) -> List[Dict]:
+    """
+    Filter users created within the last 7 days.
+    """
+    last_seven_days = []
+    current_date = datetime.now(timezone.utc)
+    seven_days_ago = current_date - timedelta(days=7)
+
+    for user in users:
+        created_at = datetime.strptime(user['created_at'], '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone.utc)
+        if created_at >= seven_days_ago:
+            last_seven_days.append(user)
+#            print(last_seven_days)######################################
+#    print(last_seven_days)
+    return last_seven_days
+
+
+def get_users_created_in_last_seven_days() -> List[Dict]:
+    """
+    Retrieves users created in the last 7 days by calling the Auth0 API.
+    """
+    try:
+        token = get_management_token()
+#        print("Token generated successfully")
+        users = get_filtered_users(token)
+#        print(f"Retrieved {len(users)} users.")
+        last_seven_days = filter_last_seven_days(users)
+#        print(f"Users created in the last 7 days: {len(last_seven_days)}")
+        return last_seven_days
+    except requests.exceptions.RequestException as e:
+#        print("Error fetching users:", e)
+        return []
+
+
+def parse_user_info(users: List[Dict]) -> List[Dict]:
+    """
+    Parses user information to include account_name from metadata.
+    """
+    parsed_users = []
+    for user in users:
+        account_name = user.get('app_metadata', {}).get('account_name', 'N/A')
+        parsed_users.append({
+            'user_id': user['user_id'],
+            'account_name': account_name
+        })
+#    print(parsed_users)####################
+    return parsed_users
+
+def get_options_from_auth0(users: List[Dict]) -> List[Dict]:
+    """
+    Convert user data from Auth0 into Slack options format.
+    """
+    options = []
+    for i, user in enumerate(users):
+        options.append({
+            'text': {'type': 'plain_text', 'text': user.get('email', 'No Email')},
+            'value': f"value-{i}"  # Generic value format like "value-0", "value-1", etc.
+        })
+    return options
+
+'''def count_unique_account_names(data):
+    # Extract "account_name" values
+    account_names = [item['account_name'] for item in data if 'account_name' in item]
+    
+    # Count unique account names
+    unique_count = len(set(account_names))
+    print(unique_count)
+    return unique_count
+'''
+def count_unique_account_names() -> List[Dict]:
+    """
+    Retrieves users created in the last 7 days by calling the Auth0 API.
+    """
+    
+    token = get_management_token()
+    users = get_filtered_users(token)
+    last_seven_days = filter_last_seven_days(users)
+    last_seven_days = len(last_seven_days)
+#    print(last_seven_days)
+    return last_seven_days
+
+##############################################################################################
+
+def fetch_sandbox_last_7_days() -> List[Dict]:
+    """
+    Fetches sandbox details for the last 7 days.
+    Replace this with actual data-fetching logic.
+    """
+    return [
+        {"name": "John Doe", "email": "john.doe@example.com", "app_metadata": {"account_name": "Account A"}, "created_at": "2024-11-21"},
+        {"name": "Jane Smith", "email": "jane.smith@example.com", "app_metadata": {"account_name": "Account B"}, "created_at": "2024-11-20"}
+    ]
+
+def post_table_to_slack(channel_id: str, table: str):
+    """
+    Posts a formatted table to a Slack channel.
+    """
+    url = "https://slack.com/api/chat.postMessage"
+    headers = {"Authorization": f"Bearer {variables.slack_bot_token}"}
+    payload = {
+        "channel": channel_id,
+        "text": table
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+
+
+
+##############################################################################################
 def parse_account_name(text: str, num: int) -> str:
     """
     gets a string and returns the string to be queried in Retool
@@ -82,37 +239,79 @@ def make_block(arr: [], name: str) -> json:
         return data
 
 def adjusted_count(arr):
+    if not arr or not isinstance(arr[0], (list, str)):  # Check if arr is not empty and arr[0] is list or string
+        return 0  # Return 0 if the structure is not as expected
     return 0 if arr[0][0] == '-' else len(arr)
 
-def make_tel_block(arr_7_days: [], arr_about_end: [], arr_in_progress: []) -> json:
+def make_tel_block(
+    arr_7_days: [], 
+    arr_about_end: [], 
+    arr_in_progress: [], 
+    arr_sandbox_last_7_days: [] 
+) -> json:
     """
-    creates the Slack text block that will be posted after configuration is complete
-    :param arr: All the trials that were returned from Retool
-    :param total: The total amount of trials that were returned
-    :return: returns a json Slack block that will be sent to Slack
+    Creates the Slack text block that will be posted after configuration is complete.
+    This includes sections for 'Started in the last 7 days', 'About to end', 
+    'In progress', and 'Sandbox last 7 days'.
+    :param arr_7_days: All the trials that were returned from Retool (for 7 days).
+    :param arr_about_end: Trials that are about to end.
+    :param arr_in_progress: Trials that are currently in progress.
+    :param arr_sandbox_last_7_days: Users from Auth0 who accessed the sandbox in the last 7 days.
+    :return: Returns a JSON Slack block that will be sent to Slack.
     """
+#    print("arr_sandbox_last_7_days:", arr_sandbox_last_7_days)
     with open(TEMPLATE_TEL_BLOCK, 'r+') as f:
         data = json.load(f)
+#        print(f"Blocks structure: {data['blocks']}")
+
+        # Get options for each section from the arrays passed in
         options_7_days = get_options(arr_7_days)
         options_about_end = get_options(arr_about_end)
         options_in_progress = get_options(arr_in_progress)
+        options_sandbox_last_7_days = get_options_from_auth0(arr_sandbox_last_7_days)
+#        print("Options for sandbox last 7 days:", options_sandbox_last_7_days)
+#        print("Options in progress:", options_in_progress)
+        if isinstance(arr_sandbox_last_7_days, dict):
+            arr_sandbox_last_7_days = list(arr_sandbox_last_7_days.values()) 
 
-        if not options_7_days or not options_about_end or not options_in_progress:
+        # If any of the options are empty, return an empty response
+        if not options_7_days or not options_about_end or not options_in_progress or not options_sandbox_last_7_days:
             return {}
-    
+
+        # Get counts for each section
         count_7_days = adjusted_count(arr_7_days)
         count_about_end = adjusted_count(arr_about_end)
         count_in_progress = adjusted_count(arr_in_progress)
+        count_sandbox_last_7_days = count_unique_account_names()
+#        print("Count for sandbox last 7 days:", count_sandbox_last_7_days)
 
+#        print(count_sandbox_last_7_days)
+        # Update the 'Started in the last 7 days' section
         data['blocks'][2]['text']['text'] = f"*Started in the last 7 days:* *{count_7_days}*"
         data['blocks'][2]['accessory']['options'] = options_7_days
-        
+
+        # Update the 'About to end' section
         data['blocks'][3]['text']['text'] = f"*About to end:* *{count_about_end}*"
         data['blocks'][3]['accessory']['options'] = options_about_end
-        
-        data['blocks'][4]['text']['text'] = f"*in progress:* *{count_in_progress}*"
+
+        # Update the 'In progress' section
+        data['blocks'][4]['text']['text'] = f"*In progress:* *{count_in_progress}*"
         data['blocks'][4]['accessory']['options'] = options_in_progress
+
+        # Update the 'Sandbox last 7 days' section
+#        if 'text' in data['blocks'][6] and isinstance(data['blocks'][6]['text'], dict):
+        data['blocks'][7] = {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*Sandbox last 7 days:* *{count_sandbox_last_7_days}*"},
+            "accessory": {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "View Details"},
+                "action_id": "view_sandbox_details"
+            }
+        }
+
         return data
+
 
 def update_block(values: {}) -> json:
     """

@@ -18,6 +18,9 @@ class Vars(BaseSettings):
     trial_about_end: str = Field(env="TRIAL_ABOUT_END")
     trial_in_progress: str = Field(env="TRIAL_IN_PROGRESS")
     get_id: str = Field(env="GET_ID")
+    auth0_doamin: str = Field(env="AUTH0_DOMAIN")
+    client_id: str = Field(env="CLIENT_ID")
+    client_secret: str = Field(env="CLIENT_SECRET")
 
 
 
