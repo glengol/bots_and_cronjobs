@@ -21,6 +21,79 @@ TEMPLATE_TEL_BLOCK = PATH_TO_LOCAL_PROJECT + "/templates/tel_block.json"
 
 
 variables = Vars()
+##########################################################################################################
+def get_hubspot_owners():
+    """Fetch all HubSpot owners to map owner IDs to names."""
+    headers = {
+        "Authorization": f"Bearer {variables.api_key_deals}",
+        "Content-Type": "application/json",
+    }
+#    print(f"Raw API Key: {repr(variables.api_key_deals)}")
+#    print(variables.owners_api_url)
+
+    response = requests.get(variables.owners_api_url, headers=headers)
+    if response.status_code != 200:
+        print("Error fetching owners:", response.status_code, response.text)
+        return {}
+
+    owners = response.json().get("results", [])
+    return {owner["id"]: owner["firstName"] + " " + owner["lastName"] for owner in owners if "firstName" in owner and "lastName" in owner}
+
+def get_recent_deals_by_type(deal_type, days=7, owners_map=None):
+    """Fetch all deals from HubSpot CRM with a specific deal type and created in the last 'days' days."""
+    headers = {
+        "Authorization": f"Bearer {variables.api_key_deals}",
+        "Content-Type": "application/json",
+    }
+    params = {
+        "limit": 100,  # Number of records per page
+        "properties": "dealtype,dealname,amount,createdate,hubspot_owner_id,deal_source_1,deal_source_2",  # Include required properties
+        "archived": "false",
+    }
+
+    # Calculate the cutoff datetime
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+
+    deals = []
+    has_more = True
+    after = None
+
+    while has_more:
+        if after:
+            params["after"] = after  # Pagination token
+
+        response = requests.get(variables.deals_api_url, headers=headers, params=params)
+        if response.status_code != 200:
+            print("Error fetching deals:", response.status_code, response.text)
+            break
+
+        data = response.json()
+        for deal in data.get("results", []):
+            # Get the deal's created date
+            created_date = deal.get("properties", {}).get("createdate")
+            if created_date:
+                # Convert the ISO 8601 string to a datetime object
+                created_datetime = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
+                # Check if the deal matches the type and is within the last 'days' days
+                if deal.get("properties", {}).get("dealtype") == deal_type and created_datetime >= cutoff_date:
+                    deals.append(deal)
+
+        # Pagination handling
+        after = data.get("paging", {}).get("next", {}).get("after")
+        has_more = bool(after)
+
+    return deals
+
+owners_map = get_hubspot_owners()
+
+# Deal type to filter
+DEAL_TYPE = "newbusiness"  # Internal ID for New Business
+DAYS = 7  # Last 7 days
+
+# Fetch deals
+deals = get_recent_deals_by_type(DEAL_TYPE, DAYS, owners_map)
+deals_30 = get_recent_deals_by_type(DEAL_TYPE, 30,owners_map )
+##########################################################################################################
 
 # Generate a Management API token
 def get_management_token() -> str:
@@ -189,6 +262,8 @@ def parse_account_name(text: str, num: int) -> str:
     return temp
 
 def get_options(arr: []) -> []:
+#    print("get_options called with arr:", arr)
+
     """
     gets all options and puts them in order
     :param arr: All the accounts that were returned from Retool
@@ -222,6 +297,7 @@ def get_options(arr: []) -> []:
 
     return results
 
+
 def make_block(arr: [], name: str) -> json:
     """
     creates the Slack text block that will be posted after configuration is complete
@@ -247,7 +323,7 @@ def make_tel_block(
     arr_7_days: [], 
     arr_about_end: [], 
     arr_in_progress: [], 
-    arr_sandbox_last_7_days: [] 
+    arr_sandbox_last_7_days: []
 ) -> json:
     """
     Creates the Slack text block that will be posted after configuration is complete.
@@ -259,16 +335,23 @@ def make_tel_block(
     :param arr_sandbox_last_7_days: Users from Auth0 who accessed the sandbox in the last 7 days.
     :return: Returns a JSON Slack block that will be sent to Slack.
     """
-#    print("arr_sandbox_last_7_days:", arr_sandbox_last_7_days)
+#    print("Received in make_tel_block - arr_7_days:", arr_7_days)
+#    print("Received in make_tel_block - arr_about_end:", arr_about_end)
+#    print("Received in make_tel_block - arr_in_progress:", arr_in_progress)
+#    print("Received in make_tel_block - arr_sandbox_last_7_days:", arr_sandbox_last_7_days)
     with open(TEMPLATE_TEL_BLOCK, 'r+') as f:
         data = json.load(f)
 #        print(f"Blocks structure: {data['blocks']}")
 
         # Get options for each section from the arrays passed in
-        options_7_days = get_options(arr_7_days)
+        options_7_days = get_options(arr_7_days) 
         options_about_end = get_options(arr_about_end)
         options_in_progress = get_options(arr_in_progress)
         options_sandbox_last_7_days = get_options_from_auth0(arr_sandbox_last_7_days)
+#        print(f"arr_7_days: {options_7_days}")
+#        print(f"arr_about_end: {options_about_end}")
+#        print(f"arr_in_progress: {arr_in_progress}")
+#        print(f"arr_sandbox_last_7_days: {arr_sandbox_last_7_days}")
 #        print("Options for sandbox last 7 days:", options_sandbox_last_7_days)
 #        print("Options in progress:", options_in_progress)
         if isinstance(arr_sandbox_last_7_days, dict):
@@ -283,8 +366,8 @@ def make_tel_block(
         count_about_end = adjusted_count(arr_about_end)
         count_in_progress = adjusted_count(arr_in_progress)
         count_sandbox_last_7_days = count_unique_account_names()
-#        print("Count for sandbox last 7 days:", count_sandbox_last_7_days)
-
+        count_deals = len(deals)
+        count_deals_30 = (len(deals_30))
 #        print(count_sandbox_last_7_days)
         # Update the 'Started in the last 7 days' section
         data['blocks'][2]['text']['text'] = f"*Started in the last 7 days:* *{count_7_days}*"
@@ -299,7 +382,6 @@ def make_tel_block(
         data['blocks'][4]['accessory']['options'] = options_in_progress
 
         # Update the 'Sandbox last 7 days' section
-#        if 'text' in data['blocks'][6] and isinstance(data['blocks'][6]['text'], dict):
         data['blocks'][7] = {
             "type": "section",
             "text": {"type": "mrkdwn", "text": f"*Sandbox last 7 days:* *{count_sandbox_last_7_days}*"},
@@ -308,6 +390,20 @@ def make_tel_block(
                 "text": {"type": "plain_text", "text": "View Details"},
                 "action_id": "view_sandbox_details"
             }
+        }
+        
+        data['blocks'][10] = {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*New deals last 7 days:* *{count_deals}*"},
+            "accessory": {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "View Details"},
+                "action_id": "view_deals_details"
+            }
+        }
+        data['blocks'][12] = {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*New deals this month:* *{count_deals_30}*"},
         }
 
         return data
@@ -473,4 +569,3 @@ def make_admin_list(s: str) -> {}:
                       for user, value in (element.split(':')
                                           for element in s.split(', ')))
     return dictionary
-

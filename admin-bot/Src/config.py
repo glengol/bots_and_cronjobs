@@ -21,7 +21,9 @@ class Vars(BaseSettings):
     auth0_doamin: str = Field(env="AUTH0_DOMAIN")
     client_id: str = Field(env="CLIENT_ID")
     client_secret: str = Field(env="CLIENT_SECRET")
-
+    api_key_deals: str = Field(env="API_KEY_DEALS")
+    deals_api_url: str = Field(env="DEALS_API_URL")
+    owners_api_url: str = Field(env="OWNERS_API_URL")
 
 
 

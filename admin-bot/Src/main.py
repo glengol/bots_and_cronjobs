@@ -266,17 +266,15 @@ def main_menu(message: {}, say, num: int):
     response_7_days = requests.get(variables.trial_started_last_7_days)
     response_about_end = requests.get(variables.trial_about_end)
     response_in_progress = requests.get(variables.trial_in_progress)
-
     sandbox_last_7_days = utility.get_users_created_in_last_seven_days()
 
-#    print(request_sandbox_last_7_days)
     # parse it into json
     request_7_days = response_7_days.json()
     request_about_end = response_about_end.json()
     request_in_progress = response_in_progress.json()
     request_sandbox_last_7_days = sandbox_last_7_days
-
-    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'), sandbox_last_7_days)
+    
+    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'), sandbox_last_7_days )
     if m == {}:  # if no results were returned
         say("No search results found , please try again")
         return
@@ -289,7 +287,6 @@ def main_menu(message: {}, say, num: int):
     utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_7_days, message)
     utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_about_end, message)
     utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_in_progress, message)
-    
     utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_sandbox_last_7_days, message)
 
 
@@ -317,6 +314,8 @@ def handle_block_actions(payload):
 
     if action_id == "view_sandbox_details":
         utility.handle_view_sandbox_details(payload)
+    elif action_id == "view_deals_details":
+        utility.handle_view_deals_details(payload)
 
 @app.action("view_sandbox_details")
 def handle_view_sandbox_details(ack, body, client):
@@ -355,6 +354,69 @@ def handle_view_sandbox_details(ack, body, client):
             }
         ]
     )
+    logger.info(
+        "Successfully used handle_view_sandbox_details function",
+        extra={"channel_id": body['channel']['id'], "level": "INFO"}
+    )
+
+@app.action("view_deals_details")
+def handle_view_deals_details(payload, body, ack, client):
+    """
+    Handles the 'View Details' button click and posts a CSV-formatted table of deals.
+    """
+    ack()  # Acknowledge the action
+
+    # Attempt to retrieve the channel ID
+    channel_id = (
+        body.get("channel", {}).get("id") or
+        payload.get("container", {}).get("channel_id") or
+        payload.get("channel", {}).get("id") or
+        "D0807TR5EBC"  # Fallback to a default channel ID
+    )
+
+    if not channel_id:
+        print("Unable to retrieve channel ID from payload or body")
+        return
+
+    # Fetch deals and construct a CSV message
+    deals = utility.get_recent_deals_by_type(utility.DEAL_TYPE, utility.DAYS, utility.owners_map)
+    if not deals:
+        message = "No new deals found in the last 7 days."
+    else:
+        csv_lines = ["Deal Name,Amount,Owner,Deal Source 1,Deal Source 2,Created At"]
+        for deal in deals:
+            deal_name = deal['properties'].get('dealname', 'N/A').replace(",", " ")
+            amount = deal['properties'].get('amount', 'N/A')
+            owner_id = deal['properties'].get('hubspot_owner_id', 'N/A')
+            deal_owner = utility.owners_map.get(owner_id, "Unknown Owner").replace(",", " ")
+#            deal_source_1 = deal['properties'].get('deal_source_1', 'N/A').replace(",", " ")
+            deal_source_1 = deal['properties'].get('deal_source_1', 'N/A') or 'N/A'
+            deal_source_1 = deal_source_1.replace(",", " ")
+            deal_source_2 = deal['properties'].get('deal_source_2', 'N/A') or 'N/A'
+            deal_source_2 = deal_source_2.replace(",", " ")
+            created_at = deal['properties'].get('createdate', 'N/A').replace(",", " ")
+            csv_lines.append(f"{deal_name},{amount},{deal_owner},{deal_source_1},{deal_source_2},{created_at}")
+
+        message = "\n".join(csv_lines)
+
+    # Post the CSV content to Slack
+    try:
+        client.chat_postMessage(
+            channel=channel_id,
+            text="Here are the new deals added in the last 7 days:",
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"```\n{message}\n```"}
+                }
+            ]
+        )
+        logger.info(
+            "Successfully used handle_view_deals_details function",
+            extra={"channel_id": channel_id, "level": "INFO"}
+        )
+    except Exception as e:
+        print("Failed to post message to Slack:", str(e))
 
 ########################################################################################################
 

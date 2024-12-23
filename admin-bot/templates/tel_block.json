@@ -86,7 +86,7 @@
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": ":rocket: Sandbox status :rocket:"
+                    "text": ":beach_with_umbrella: Sandbox status :beach_with_umbrella:"
                 }
             },
             {
@@ -107,6 +107,45 @@
                     },
                     "value": "sandbox_details_last_7_days"
                 }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": ":dollar: Deals status :dollar:"
+                }
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "New deals last 7 days: *COUNT*"
+                },
+                "accessory": {
+                    "type": "button",
+                    "action_id": "view_deals_details",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "View Details"
+                    },
+                    "value": "deals_status_last_7_days"
+                }
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "New deals this month: *COUNT*"
+                }
+            },
+            {
+                "type": "divider"
             },
             {
                 "dispatch_action": true,
