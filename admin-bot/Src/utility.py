@@ -89,10 +89,6 @@ owners_map = get_hubspot_owners()
 # Deal type to filter
 DEAL_TYPE = "newbusiness"  # Internal ID for New Business
 DAYS = 7  # Last 7 days
-
-# Fetch deals
-deals = get_recent_deals_by_type(DEAL_TYPE, DAYS, owners_map)
-deals_30 = get_recent_deals_by_type(DEAL_TYPE, 30,owners_map )
 ##########################################################################################################
 
 # Generate a Management API token
@@ -366,8 +362,11 @@ def make_tel_block(
         count_about_end = adjusted_count(arr_about_end)
         count_in_progress = adjusted_count(arr_in_progress)
         count_sandbox_last_7_days = count_unique_account_names()
-        count_deals = len(deals)
-        count_deals_30 = (len(deals_30))
+        count_deals = len(get_recent_deals_by_type(DEAL_TYPE, DAYS, owners_map))
+        print("count_deals:",count_deals)
+        count_deals_30 = len(get_recent_deals_by_type(DEAL_TYPE, 30, owners_map))
+        print("count_deals_30:",count_deals_30)
+
 #        print(count_sandbox_last_7_days)
         # Update the 'Started in the last 7 days' section
         data['blocks'][2]['text']['text'] = f"*Started in the last 7 days:* *{count_7_days}*"

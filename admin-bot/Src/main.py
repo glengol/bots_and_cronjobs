@@ -274,7 +274,7 @@ def main_menu(message: {}, say, num: int):
     request_in_progress = response_in_progress.json()
     request_sandbox_last_7_days = sandbox_last_7_days
     
-    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'), sandbox_last_7_days )
+    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'), sandbox_last_7_days)
     if m == {}:  # if no results were returned
         say("No search results found , please try again")
         return
@@ -288,7 +288,6 @@ def main_menu(message: {}, say, num: int):
     utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_about_end, message)
     utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_in_progress, message)
     utility.add_user_info(admin_list, message.get('user'), curr_message["messages"][0].get('ts'), request_sandbox_last_7_days, message)
-
 
     logger.info(f"Function main_menu() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}")
 
