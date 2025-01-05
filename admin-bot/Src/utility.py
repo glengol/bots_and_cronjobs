@@ -5,7 +5,7 @@ import logging
 from config import Vars
 from typing import List, Dict
 from datetime import datetime, timedelta, timezone
-
+import calendar
 
 ENTERPRISE = "ENTERPRISE"
 PREMIUM_TRIAL = "PREMIUM_TRIAL"
@@ -90,7 +90,92 @@ owners_map = get_hubspot_owners()
 DEAL_TYPE = "newbusiness"  # Internal ID for New Business
 DAYS = 7  # Last 7 days
 ##########################################################################################################
+def get_deals_by_month(deal_type, start_date, end_date, owners_map=None):
+    """
+    Fetch all deals from HubSpot CRM with a specific deal type within a given date range.
+    
+    Args:
+        deal_type (str): The type of deal to filter (e.g., "newbusiness").
+        start_date (datetime): Start date of the range (inclusive).
+        end_date (datetime): End date of the range (exclusive).
+        owners_map (dict): Optional mapping of HubSpot owner IDs to owner names.
 
+    Returns:
+        list: A list of deals matching the criteria.
+    """
+    headers = {
+        "Authorization": f"Bearer {variables.api_key_deals}",
+        "Content-Type": "application/json",
+    }
+
+    # Initialize variables for pagination
+    deals = []
+    has_more = True
+    after = None
+
+    while has_more:
+        params = {
+            "limit": 100,  # Number of records per page
+            "properties": "dealtype,dealname,amount,createdate,hubspot_owner_id,deal_source_1,deal_source_2",
+            "archived": "false",
+            "filterGroups": [
+                {
+                    "filters": [
+                        {
+                            "propertyName": "createdate",
+                            "operator": "GTE",
+                            "value": f"{int(start_date.timestamp() * 1000)}"
+                        },
+                        {
+                            "propertyName": "createdate",
+                            "operator": "LTE",
+                            "value": f"{int(end_date.timestamp() * 1000)}"
+                        }
+                    ]
+                }
+            ]
+        }
+
+        if after:
+            params["after"] = after  # Add pagination token if available
+
+        response = requests.get(variables.deals_api_url, headers=headers, params=params)
+        if response.status_code != 200:
+            print(f"Error fetching deals: {response.status_code} - {response.text}")
+            break
+
+        data = response.json()
+        for deal in data.get("results", []):
+            created_date = deal.get("properties", {}).get("createdate")
+            deal_type_property = deal.get("properties", {}).get("dealtype")
+
+            if created_date:
+                try:
+                    created_datetime = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
+                except ValueError:
+                    continue
+
+                # Normalize and compare deal type
+                if (
+                    deal_type_property and deal_type_property.strip().lower() == deal_type.strip().lower()
+                    and start_date <= created_datetime < end_date
+                ):
+                    deals.append(deal)
+
+        after = data.get("paging", {}).get("next", {}).get("after")
+        has_more = bool(after)
+
+    return deals
+
+
+def get_month_date_range(year, month):
+    """Get the start and end datetime of a given month."""
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    _, last_day = calendar.monthrange(year, month)
+    end_date = datetime(year, month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+    return start_date, end_date
+
+#############################################################################################
 # Generate a Management API token
 def get_management_token() -> str:
     """
@@ -351,11 +436,35 @@ def make_tel_block(
 #        print("Options for sandbox last 7 days:", options_sandbox_last_7_days)
 #        print("Options in progress:", options_in_progress)
         if isinstance(arr_sandbox_last_7_days, dict):
-            arr_sandbox_last_7_days = list(arr_sandbox_last_7_days.values()) 
+            arr_sandbox_last_7_days = list(arr_sandbox_last_7_days.values())
+
+        now = datetime.now(timezone.utc)
+        current_year = now.year
+        current_month = now.month
+
+# Current month range
+        start_current_month, end_current_month = get_month_date_range(current_year, current_month)
+        current_month_deals = get_deals_by_month(DEAL_TYPE, start_current_month, end_current_month, owners_map)
+
+# Last month range
+        last_month = current_month - 1 if current_month > 1 else 12
+        last_month_year = current_year if current_month > 1 else current_year - 1
+        start_last_month, end_last_month = get_month_date_range(last_month_year, last_month)
+        last_month_deals = get_deals_by_month(DEAL_TYPE, start_last_month, end_last_month, owners_map)
+
+# Two months back range
+        two_months_back = last_month - 1 if last_month > 1 else 12
+        two_months_back_year = last_month_year if last_month > 1 else last_month_year - 1
+        start_two_months_back, end_two_months_back = get_month_date_range(two_months_back_year, two_months_back)
+        two_months_back_deals = get_deals_by_month(DEAL_TYPE, start_two_months_back, end_two_months_back, owners_map)
 
         # If any of the options are empty, return an empty response
         if not options_7_days or not options_about_end or not options_in_progress or not options_sandbox_last_7_days:
             return {}
+# Output results
+#        print(f"Deals for current month ({now.strftime('%B')}): {len(current_month_deals)}")
+#        print(f"Deals for last month ({calendar.month_name[last_month]}): {len(last_month_deals)}")
+#        print(f"Deals for two months back ({calendar.month_name[two_months_back]}): {len(two_months_back_deals)}")
 
         # Get counts for each section
         count_7_days = adjusted_count(arr_7_days)
@@ -363,9 +472,6 @@ def make_tel_block(
         count_in_progress = adjusted_count(arr_in_progress)
         count_sandbox_last_7_days = count_unique_account_names()
         count_deals = len(get_recent_deals_by_type(DEAL_TYPE, DAYS, owners_map))
-        print("count_deals:",count_deals)
-        count_deals_30 = len(get_recent_deals_by_type(DEAL_TYPE, 30, owners_map))
-        print("count_deals_30:",count_deals_30)
 
 #        print(count_sandbox_last_7_days)
         # Update the 'Started in the last 7 days' section
@@ -402,9 +508,16 @@ def make_tel_block(
         }
         data['blocks'][12] = {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*New deals this month:* *{count_deals_30}*"},
+            "text": {"type": "mrkdwn", "text": f"*Deals created current month:* *({now.strftime('%B')}): {len(current_month_deals)}*"},
         }
-
+        data['blocks'][13] = {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*Deals created last month:* *({calendar.month_name[last_month]}): {len(last_month_deals)}*"},
+        }
+        data['blocks'][14] = {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*Deals created two months back:* *({calendar.month_name[two_months_back]}): {len(two_months_back_deals)}*"},
+        }
         return data
 
 

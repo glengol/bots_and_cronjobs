@@ -141,7 +141,21 @@
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "New deals this month: *COUNT*"
+                    "text": "*Deals for current month:* *({now.strftime('%B')}): {len(current_month_deals)}*"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Deals for last month:* *({calendar.month_name[last_month]}): {len(last_month_deals)}*"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Deals for two months back:* *({calendar.month_name[two_months_back]}): {len(two_months_back_deals)}*"
                 }
             },
             {
