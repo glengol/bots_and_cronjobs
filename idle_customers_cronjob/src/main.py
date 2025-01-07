@@ -22,20 +22,29 @@ SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
 
-
 # Function to fetch the last Slack message
 def fetch_last_slack_message():
     headers = {"Authorization": f"Bearer {SLACK_TOKEN}"}
-    url = f"https://slack.com/api/conversations.history?channel={CHANNEL_ID}&limit=1"
-    response = requests.get(url, headers=headers)
+    url = f"https://slack.com/api/conversations.history?channel={CHANNEL_ID}&limit=200"
+    
+    while url:
+        response = requests.get(url, headers=headers)
 
-#    print("Slack API Response:", response.json())
-
-    if response.status_code == 200:
-        messages = response.json().get("messages", [])
-        if messages:
-            return messages[0]["text"]  # Return the last message's text
+        if response.status_code == 200:
+            data = response.json()
+            messages = data.get("messages", [])
+            
+            for message in messages:
+                if "Idle Customer Report" in message.get("text", ""):
+                    return message["text"]  # Return the last relevant message's text
+            
+            # Paginate to the next batch of messages if available
+            url = f"https://slack.com/api/conversations.history?channel={CHANNEL_ID}&cursor={data.get('response_metadata', {}).get('next_cursor')}"
+        else:
+            break  # Exit if API call fails
+    
     return None
+
 
 # Function to extract inactive accounts from the last message
 def extract_inactive_accounts(last_message):
@@ -69,7 +78,6 @@ last_message_accounts = extract_inactive_accounts(last_message)
 # Function to send a report to Slack
 def send_report_to_slack(inactive_accounts_sorted):
     global last_message_accounts
-#    print("The previous accounts are:", last_message_accounts)
     current_date = datetime.now().strftime("%m/%d/%Y")
     current_accounts = set([account['name'] for account in inactive_accounts_sorted])
 
@@ -81,23 +89,53 @@ def send_report_to_slack(inactive_accounts_sorted):
         message = "No idle enterprise accounts found."
     else:
         message = f":low_battery: Idle Customer Report {current_date} :low_battery:\n"
-        if inactive_accounts_sorted:
-            message += "```{:<30} {:<15}\n".format("Account Name", "Days Inactive")  # Headers without Account ID
-            message += "-" * 50 + "\n"  # Separator
-            for account in inactive_accounts_sorted:
+
+        # Separate accounts into categories
+        rest_of_world = [
+            "appsflyer.com", "helvetia.ch", "similarweb.com", "artlist.io",
+            "aquasec.com", "moonactive.com", "tamnoon.io", "axissecurity.com",
+            "ridewithvia.com", "axiom.security", "zoominfo.com", "final.co.il",
+            "economist.com", "cyesec.com", "strauss-group.com", "moonactive-data-platform",
+            "moonactive-infra-group", "moonactive-melsoft", "moonactive-traveltown",
+            "moonactive-zm", "checkpoint.com", "checkpoint.com-perimeter81"
+        ]
+
+        american_accounts = []
+        rest_of_world_accounts = []
+
+        for account in inactive_accounts_sorted:
+            if account['name'] in rest_of_world:
+                rest_of_world_accounts.append(account)
+            else:
+                american_accounts.append(account)
+
+        # Format American accounts section
+        if american_accounts:
+            message += "American Accounts:\n"
+            message += "```{:<30} {:<15}\n".format("Account Name", "Days Inactive")
+            message += "-" * 50 + "\n"
+            for account in american_accounts:
                 message += "{:<30} {:<15}\n".format(account['name'], account['days_inactive'])
-            message += "```"  # End of code block for formatting
+            message += "```\n"
+
+        # Format Rest of the World section
+        if rest_of_world_accounts:
+            message += "Rest of the World:\n"
+            message += "```{:<30} {:<15}\n".format("Account Name", "Days Inactive")
+            message += "-" * 50 + "\n"
+            for account in rest_of_world_accounts:
+                message += "{:<30} {:<15}\n".format(account['name'], account['days_inactive'])
+            message += "```\n"
 
         # Include only new reactivated accounts
-#        print("Reactivated accounts:", reactivated_accounts)  # Debugging
         if reactivated_accounts:
             logger.info("Reactivated accounts found", extra={"reactivated_accounts": list(reactivated_accounts)})
             message += "\n:battery: Back to being active :battery:\n"
-            message += "```\n"  # Start a code block for the accounts
+            message += "```\n"
             for account in sorted(reactivated_accounts):
-                logger.debug(f"Adding reactivated account to message: {account}")  # Log each account added
+                logger.debug(f"Adding reactivated account to message: {account}")
                 message += f"{account}\n"
-            message += "```"  # End the code block
+            message += "```"
 
     # Send POST request to Slack
     try:
