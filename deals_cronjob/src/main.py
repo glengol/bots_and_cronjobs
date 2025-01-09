@@ -184,40 +184,11 @@ two_months_back_year = last_month_year if last_month > 1 else last_month_year - 
 start_two_months_back, end_two_months_back = get_month_date_range(two_months_back_year, two_months_back)
 two_months_back_deals = get_deals_by_month(DEAL_TYPE, start_two_months_back, end_two_months_back, owners_map)
 
-#print(f"Current month range: {start_current_month} to {end_current_month}")
-#print(f"Last month range: {start_last_month} to {end_last_month}")
-#print(f"Two months back range: {start_two_months_back} to {end_two_months_back}")
-
-# Output results
-'''
-print(f"Deals created last 7 days: {len(get_recent_deals_by_type(DEAL_TYPE, DAYS, owners_map))}")
-print(f"Deals created current month ({now.strftime('%B')}): {len(current_month_deals)}")
-print(f"Deals created last month ({calendar.month_name[last_month]}): {len(last_month_deals)}")
-print(f"Deals created two months back ({calendar.month_name[two_months_back]}): {len(two_months_back_deals)}")
-'''
-
-
 ##################################################################################################
 
 # Fetch deals
 deals = get_recent_deals_by_type(DEAL_TYPE, DAYS, owners_map)
 
-# Print the results
-
-#print(f"Found {len(deals)} deals with type '{DEAL_TYPE}' created in the last {DAYS} days:")
-'''
-print("new deal details:")
-for deal in deals:
-    deal_name = deal['properties'].get('dealname', 'N/A')
-    amount = deal['properties'].get('amount', 'N/A')
-    owner_id = deal['properties'].get('hubspot_owner_id', 'N/A')
-    deal_owner = owners_map.get(owner_id, "Unknown Owner")
-    deal_source_1 = deal['properties'].get('deal_source_1', 'N/A')
-    deal_source_2 = deal['properties'].get('deal_source_2', 'N/A')
-    created_date = deal['properties'].get('createdate', 'N/A')
-    print(f"Name: {deal_name}, Amount: {amount}, Deal Owner: {deal_owner}, Deal Source 1: {deal_source_1}, Deal Source 2: {deal_source_2}, Created Date: {created_date}")
-#print(deal['properties'])
-'''
 def send_to_slack_formatted(message):
     """Send a prettified message to a Slack channel using block formatting."""
     payload = {
@@ -247,9 +218,11 @@ summary = (
     f"Deals created two months back ({calendar.month_name[two_months_back]}): {len(two_months_back_deals)}\n"
 )
 
+sorted_deals = sorted(deals, key=lambda deal: deal['properties'].get('createdate', 'N/A'), reverse=True)
+
 # Format details of new deals
 new_deals_details = "New deals details:\n"
-for deal in deals:
+for deal in sorted_deals:
     deal_name = deal['properties'].get('dealname', 'N/A')
     amount = deal['properties'].get('amount', 'N/A')
     owner_id = deal['properties'].get('hubspot_owner_id', 'N/A')
