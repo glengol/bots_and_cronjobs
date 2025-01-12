@@ -319,7 +319,7 @@ def handle_block_actions(payload):
 @app.action("view_sandbox_details")
 def handle_view_sandbox_details(ack, body, client):
     """
-    Handles the 'View Details' button click and posts a CSV-formatted table.
+    Handles the 'View Details' button click and posts a formatted text block of sandbox user data.
     """
     ack()  # Acknowledge the action
     
@@ -328,40 +328,53 @@ def handle_view_sandbox_details(ack, body, client):
     if not arr_sandbox_last_7_days:
         message = "No sandbox users found in the last 7 days."
     else:
-        # Prepare CSV header
-        csv_lines = ["Name,Email,Account,Created At"]
-        
-        # Add each user's details as a CSV row
+        # Start with the header
+        message = "Sandbox Users Report (Last 7 Days)\n-------------\n"
+
+        # Add details for each user
         for user in arr_sandbox_last_7_days:
-            name = user.get('name', 'N/A').replace(",", " ")  # Replace commas to avoid CSV issues
+            name = user.get('name', 'N/A').replace(",", " ")  # Replace commas to avoid formatting issues
             email = user.get('email', 'N/A').replace(",", " ")
             account = user.get('app_metadata', {}).get('account_name', 'N/A').replace(",", " ")
-            created_at = user.get('created_at', 'N/A').replace(",", " ")
-            csv_lines.append(f"{name},{email},{account},{created_at}")
-        
-        # Combine all lines into a CSV message
-        message = "\n".join(csv_lines)
-    
-    # Post the CSV content to Slack
-    client.chat_postMessage(
-        channel=body['channel']['id'],
-        text="Here is the sandbox user data for the last 7 days:",
-        blocks=[
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": f"```\n{message}\n```"}
-            }
-        ]
-    )
-    logger.info(
-        "Successfully used handle_view_sandbox_details function",
-        extra={"channel_id": body['channel']['id'], "level": "INFO"}
-    )
+            created_at = user.get('created_at', 'N/A')
+            created_at = created_at.split("T")[0] if "T" in created_at else created_at
+
+            # Add user details
+            message += (
+                f"Name: {name}\n"
+                f"Email: {email}\n"
+                f"Account: {account}\n"
+                f"Created At: {created_at}\n"
+                "-------------\n"
+            )
+
+    # Wrap the message in triple backticks for a code block
+    message_blob = f"```\n{message.strip()}\n```"
+
+    # Post the formatted content to Slack
+    try:
+        client.chat_postMessage(
+            channel=body['channel']['id'],
+            text="Here is the sandbox user data for the last 7 days:",
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": message_blob}
+                }
+            ]
+        )
+        logger.info(
+            "Successfully used handle_view_sandbox_details function",
+            extra={"channel_id": body['channel']['id'], "level": "INFO"}
+        )
+    except Exception as e:
+        print("Failed to post message to Slack:", str(e))
+
 
 @app.action("view_deals_details")
 def handle_view_deals_details(payload, body, ack, client):
     """
-    Handles the 'View Details' button click and posts a CSV-formatted table of deals.
+    Handles the 'View Details' button click and posts a formatted text block of deals.
     """
     ack()  # Acknowledge the action
 
@@ -377,28 +390,42 @@ def handle_view_deals_details(payload, body, ack, client):
         print("Unable to retrieve channel ID from payload or body")
         return
 
-    # Fetch deals and construct a CSV message
+    # Fetch deals and construct a formatted message
     deals = utility.get_recent_deals_by_type(utility.DEAL_TYPE, utility.DAYS, utility.owners_map)
     if not deals:
         message = "No new deals found in the last 7 days."
     else:
-        csv_lines = ["Deal Name,Amount,Owner,Deal Source 1,Deal Source 2,Created At"]
+        # Start with the header
+        message = "New Deals Report (Last 7 Days)\n-------------\n"
+
+        # Add details for each deal
         for deal in deals:
             deal_name = deal['properties'].get('dealname', 'N/A').replace(",", " ")
             amount = deal['properties'].get('amount', 'N/A')
             owner_id = deal['properties'].get('hubspot_owner_id', 'N/A')
             deal_owner = utility.owners_map.get(owner_id, "Unknown Owner").replace(",", " ")
-#            deal_source_1 = deal['properties'].get('deal_source_1', 'N/A').replace(",", " ")
             deal_source_1 = deal['properties'].get('deal_source_1', 'N/A') or 'N/A'
             deal_source_1 = deal_source_1.replace(",", " ")
             deal_source_2 = deal['properties'].get('deal_source_2', 'N/A') or 'N/A'
             deal_source_2 = deal_source_2.replace(",", " ")
-            created_at = deal['properties'].get('createdate', 'N/A').replace(",", " ")
-            csv_lines.append(f"{deal_name},{amount},{deal_owner},{deal_source_1},{deal_source_2},{created_at}")
+            created_at = deal['properties'].get('createdate', 'N/A')
+            created_at = created_at.split("T")[0] if "T" in created_at else created_at
 
-        message = "\n".join(csv_lines)
+            # Add deal details
+            message += (
+                f"Name: {deal_name}\n"
+                f"Amount: {amount}\n"
+                f"Owner: {deal_owner}\n"
+                f"Source 1: {deal_source_1}\n"
+                f"Source 2: {deal_source_2}\n"
+                f"Created: {created_at}\n"
+                "-------------\n"
+            )
 
-    # Post the CSV content to Slack
+    # Wrap the message in triple backticks for a code block
+    message_blob = f"```\n{message.strip()}\n```"
+
+    # Post the formatted content to Slack
     try:
         client.chat_postMessage(
             channel=channel_id,
@@ -406,7 +433,7 @@ def handle_view_deals_details(payload, body, ack, client):
             blocks=[
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"```\n{message}\n```"}
+                    "text": {"type": "mrkdwn", "text": message_blob}
                 }
             ]
         )
@@ -416,6 +443,7 @@ def handle_view_deals_details(payload, body, ack, client):
         )
     except Exception as e:
         print("Failed to post message to Slack:", str(e))
+
 
 ########################################################################################################
 
