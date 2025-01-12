@@ -328,6 +328,11 @@ def handle_view_sandbox_details(ack, body, client):
     if not arr_sandbox_last_7_days:
         message = "No sandbox users found in the last 7 days."
     else:
+        arr_sandbox_last_7_days = sorted(
+            arr_sandbox_last_7_days,
+            key=lambda user: user.get('created_at', 'N/A'),
+            reverse=True
+        )
         # Start with the header
         message = "Sandbox Users Report (Last 7 Days)\n-------------\n"
 
@@ -377,7 +382,6 @@ def handle_view_deals_details(payload, body, ack, client):
     Handles the 'View Details' button click and posts a formatted text block of deals.
     """
     ack()  # Acknowledge the action
-
     # Attempt to retrieve the channel ID
     channel_id = (
         body.get("channel", {}).get("id") or
@@ -392,6 +396,7 @@ def handle_view_deals_details(payload, body, ack, client):
 
     # Fetch deals and construct a formatted message
     deals = utility.get_recent_deals_by_type(utility.DEAL_TYPE, utility.DAYS, utility.owners_map)
+    sorted_deals = sorted(deals, key=lambda deal: deal['properties'].get('createdate', 'N/A'), reverse=True)
     if not deals:
         message = "No new deals found in the last 7 days."
     else:
@@ -399,7 +404,7 @@ def handle_view_deals_details(payload, body, ack, client):
         message = "New Deals Report (Last 7 Days)\n-------------\n"
 
         # Add details for each deal
-        for deal in deals:
+        for deal in sorted_deals:
             deal_name = deal['properties'].get('dealname', 'N/A').replace(",", " ")
             amount = deal['properties'].get('amount', 'N/A')
             owner_id = deal['properties'].get('hubspot_owner_id', 'N/A')
