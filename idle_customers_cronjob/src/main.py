@@ -97,7 +97,7 @@ def send_report_to_slack(inactive_accounts_sorted):
             "ridewithvia.com", "axiom.security", "zoominfo.com", "final.co.il",
             "economist.com", "cyesec.com", "strauss-group.com", "moonactive-data-platform",
             "moonactive-infra-group", "moonactive-melsoft", "moonactive-traveltown",
-            "moonactive-zm", "checkpoint.com", "checkpoint.com-perimeter81"
+            "moonactive-zm", "checkpoint.com", "checkpoint.com-perimeter81", "solitics.com"
         ]
 
         american_accounts = []
