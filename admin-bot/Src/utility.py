@@ -520,7 +520,6 @@ def make_tel_block(
         }
         return data
 
-
 def update_block(values: {}) -> json:
     """
     Creates the block that shows the details of a selected account
@@ -575,7 +574,16 @@ def update_block(values: {}) -> json:
             {"type": "plain_text",
             "text": f"Tier: {tier} {':house:' if tier == 'PREMIUM_TRIAL' else ':office:'}"}
         )
-
+        # Shows SKUs
+        skus = values.get('skus', [])
+        if not isinstance(skus, list):
+            skus = []  # Ensure it's a list
+        skus_text = ", ".join(skus) if skus else "None"
+        
+        data["blocks"][1].get("elements").append(
+            {"type": "plain_text",
+            "text": f"SKUs: {skus_text} :package:"}
+        )
         data["blocks"][1].get("elements").append(
             {"type": "plain_text",
             "text": (
@@ -586,7 +594,6 @@ def update_block(values: {}) -> json:
             )
             }
         )
-
 
         # data["blocks"][1].get("elements").append(
         #     {"type": "plain_text",
