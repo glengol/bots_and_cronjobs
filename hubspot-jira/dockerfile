@@ -1,0 +1,17 @@
+# Use official Python base image
+FROM python:3.8-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy files
+COPY get_jira_tickets.py push_to_hubspot.py requirements.txt entrypoint.sh ./
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Give execute permissions to the script
+RUN chmod +x entrypoint.sh
+
+# Run the script
+CMD ["sh", "./entrypoint.sh"]
