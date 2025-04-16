@@ -29,11 +29,13 @@ QUERY = {
     """
 }
 
+
 # ✅ Headers for API Request
 HEADERS = {
-    "Authorization": MONDAY_API_KEY,
+    "Authorization": f"Bearer {MONDAY_API_KEY}",
     "Content-Type": "application/json"
 }
+print("Sending request to Monday API...")
 
 # ✅ Send Request
 response = requests.post("https://api.monday.com/v2", json=QUERY, headers=HEADERS)

@@ -52,16 +52,17 @@ def get_company_id(company_name):
 
 # ✅ Function to Get Current RFE Data from HubSpot
 def get_current_rfe(company_id):
-    """Fetches the current RFE data from HubSpot for a given company."""
     fetch_url = UPDATE_COMPANY_URL.format(company_id=company_id)
     response = requests.get(fetch_url, headers=HEADERS, params={"properties": "rfe_customer_feature_requests"})
 
     if response.status_code == 200:
-        current_rfe = response.json().get("properties", {}).get("rfe_customer_feature_requests", "")
-        return current_rfe.strip()  # ✅ Remove extra spaces to avoid false mismatches
+        current_rfe = response.json().get("properties", {}).get("rfe_customer_feature_requests")
+        if current_rfe is not None:
+            return current_rfe.strip()
+        return ""
     else:
         print(f"❌ Failed to fetch current RFE for Company ID {company_id}. Status: {response.status_code}")
-        return None
+        return ""
 
 
 # ✅ Function to Overwrite RFE in HubSpot **Only If Data Changes**
