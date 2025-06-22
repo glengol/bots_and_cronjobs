@@ -173,7 +173,7 @@ ignored_names = [
     "comtech-CPSS", "comtech-ctl-eng-prod", "comtech-smsc", "comtech-scm", "comtech-cybr", "comtech-prod", 
     "sportradar-production-engineering", "sportradar-devops", "sportradar-odds", "sportradar-av", "sportradar.com",
     "sportradar-comp-solutions", "sportradar-ads", "spinbyoxxo.com.mx", "moonactive-data-platform",
-    "moonactive-infra-group", "moonactive-melsoft", "moonactive-traveltown", "moonactive-zm"
+    "moonactive-infra-group", "moonactive-melsoft", "moonactive-traveltown", "moonactive-zm", "moonactive-infra",  "Zorg"
 ]
 
 # Query for enterprise accounts
