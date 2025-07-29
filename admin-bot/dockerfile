@@ -1,14 +1,21 @@
-# Base image
-FROM python:3.9-slim-buster
+# Use a lightweight Python base image
+FROM python:3.9-slim
 
-# Copy application code
+# Set working directory inside the container
+
 COPY ./Src /src
 COPY ./templates src/templates
+# Copy only requirements first (for better caching)
 WORKDIR /src
 
 # Install dependencies
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r /src/requirements.txt
 
+# Copy the rest of the application files
+COPY . .
 
-# Run application
-CMD ["python", "main.py"]
+# Ensure the entrypoint script has execution permissions
+RUN chmod +x /src/entrypoint.sh
+
+# Use exec form for proper signal handling (ensures graceful shutdowns)
+ENTRYPOINT ["/bin/bash", "/src/entrypoint.sh"]

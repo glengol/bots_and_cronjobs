@@ -1,5 +1,11 @@
-pydantic==1.8
 slack-sdk
 slack-bolt
 requests
 python-json-logger
+boto3
+faiss-cpu
+langchain
+numpy
+openai
+langchain-openai
+langchain-community

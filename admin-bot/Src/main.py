@@ -1,6 +1,7 @@
 import os
 import signal
 import json
+from pydantic_settings import BaseSettings
 from pydantic import Field
 from slack_sdk import WebClient
 from slack_bolt import App
@@ -12,8 +13,14 @@ import utility
 import requests
 import config
 import logging
+import pickle
+import faiss
 from pythonjsonlogger import jsonlogger
-
+from langchain.text_splitter import TokenTextSplitter
+from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
+from langchain_community.vectorstores import FAISS
+from langchain.chains import RetrievalQA
+from openai import BadRequestError
 
 formatter = jsonlogger.JsonFormatter("%(asctime)s - %(message)s")
 json_handler = logging.StreamHandler()
@@ -21,6 +28,8 @@ json_handler.setFormatter(formatter)
 logger = logging.getLogger('my_json')
 logger.setLevel(logging.INFO)
 logger.addHandler(json_handler)
+logger = logging.getLogger(__name__)
+
 
 variables = config.Vars()
 key = variables.key
@@ -32,6 +41,85 @@ client = WebClient(token=key)
 admin_list = utility.make_admin_list(variables.admin_list_var)
 # list of users who have a running configuration
 active_list = []
+
+
+####################################################
+AZURE_API_KEY = variables.AZURE_API_KEY
+AZURE_OPENAI_ENDPOINT = variables.AZURE_OPENAI_ENDPOINT
+AZURE_OPENAI_API_VERSION = "2024-02-01"
+AZURE_DEPLOYMENT_NAME = "text-embedding-ada-002"
+
+FAISS_LOCAL_DIR = "./data"
+
+FAISS_INDEX_PATHS = {
+    "firefly": os.path.join(FAISS_LOCAL_DIR, "faiss_index_firefly"),
+    "confluence": os.path.join(FAISS_LOCAL_DIR, "faiss_index_confluence"),
+    "slack": os.path.join(FAISS_LOCAL_DIR, "faiss_index_slack")
+}
+FAISS_METADATA_PATHS = {
+    "firefly": os.path.join(FAISS_LOCAL_DIR, "faiss_metadata_firefly.pkl"),
+    "confluence": os.path.join(FAISS_LOCAL_DIR, "faiss_metadata_confluence.pkl"),
+    "slack": os.path.join(FAISS_LOCAL_DIR, "faiss_metadata_slack.pkl")
+}
+
+# 🔺 Initialize Embeddings Model
+embeddings_model = AzureOpenAIEmbeddings(
+    api_key=AZURE_API_KEY,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+    deployment=AZURE_DEPLOYMENT_NAME,
+    openai_api_version=AZURE_OPENAI_API_VERSION,
+)
+
+# 🔺 Load FAISS Index from Downloaded S3 Data
+def load_faiss_index(index_key):
+    """
+    Loads a FAISS index from the downloaded S3 files.
+    """
+    if not os.path.exists(FAISS_INDEX_PATHS[index_key]):
+        logger.warning(f"🚨 FAISS index not found for {index_key}. Exiting...")
+        return None
+
+    try:
+        logger.info(f"🔄 Loading FAISS index from {FAISS_INDEX_PATHS[index_key]}...")
+        
+        # ✅ Pass the embeddings model to fix the error
+        vector_store = FAISS.load_local(
+            FAISS_INDEX_PATHS[index_key], 
+            embeddings_model,  # ✅ Fix: Add missing argument
+            allow_dangerous_deserialization=True
+        )
+        
+        logger.info(f"✅ FAISS index loaded successfully for {index_key}.")
+        return vector_store
+    except Exception as e:
+        logger.error(f"🚨 Error loading FAISS index for {index_key}: {str(e)}", exc_info=True)
+        return None
+
+
+# 🔺 Load FAISS indices
+faiss_indices = {}
+for source in FAISS_INDEX_PATHS.keys():
+    faiss_index = load_faiss_index(source)
+    if faiss_index:
+        faiss_indices[source] = faiss_index
+
+print("🚀 FAISS indices are ready to use!")
+
+# 🔺 Initialize Retrieval QA for Each Source
+qa_chains = {}
+for source, faiss_index in faiss_indices.items():
+    qa_chains[source] = RetrievalQA.from_chain_type(
+        llm=AzureChatOpenAI(
+            model="testdeployment",
+            api_key=AZURE_API_KEY,
+            azure_endpoint=AZURE_OPENAI_ENDPOINT,
+            api_version=AZURE_OPENAI_API_VERSION,
+        ),
+        retriever=faiss_index.as_retriever()
+    )
+
+
+####################################################
 
 def kill_server(message: {}):
     logger.info(f"Trigger self destruct funcion kill_server by user {app.client.users_info(user=message.get('user')).get('user').get('name')}")    
@@ -291,21 +379,6 @@ def main_menu(message: {}, say, num: int):
 
     logger.info(f"Function main_menu() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}")
 
-@app.message() 
-def get_chat_message(message: {}, say, ack, user_id: str, channel_id: str):
-    
-    if message.get('text', {}).lower() == "start":
-        main_menu(message, say, 0)
-    elif message.get('text', {}).lower() == "end":
-        abort_action(user_id, channel_id, say, ack)
-    elif message.get('text', {}).lower() == "kill":
-        kill_server(message)
-    else:
-        say("Welcome to Telefly Admin-Bot. Type 'start' to get started.")
-
-    logger.info(
-        f"Function get_chat_message() successfully finished for user {app.client.users_info(user=message.get('user')).get('user').get('name')}",
-        extra={"chat message": message.get('text')})
 ########################################################################################################
 @app.event("block_actions")
 def handle_block_actions(payload):
@@ -315,6 +388,7 @@ def handle_block_actions(payload):
         utility.handle_view_sandbox_details(payload)
     elif action_id == "view_deals_details":
         utility.handle_view_deals_details(payload)
+
 
 @app.action("view_sandbox_details")
 def handle_view_sandbox_details(ack, body, client):
@@ -376,79 +450,173 @@ def handle_view_sandbox_details(ack, body, client):
         print("Failed to post message to Slack:", str(e))
 
 
+def chunk_text(text, chunk_size=2900):
+    """Splits text into smaller chunks of max 2900 characters for Slack."""
+    return [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
+
 @app.action("view_deals_details")
 def handle_view_deals_details(payload, body, ack, client):
-    """
-    Handles the 'View Details' button click and posts a formatted text block of deals.
-    """
-    ack()  # Acknowledge the action
-    # Attempt to retrieve the channel ID
+    logger.debug("✅ Event Triggered: view_deals_details")
+    print("✅ Event Triggered: view_deals_details")
+    ack()
+
+    # Get the channel ID
     channel_id = (
-        body.get("channel", {}).get("id") or
-        payload.get("container", {}).get("channel_id") or
-        payload.get("channel", {}).get("id") or
-        "D0807TR5EBC"  # Fallback to a default channel ID
+        body.get("channel", {}).get("id")
+        or payload.get("container", {}).get("channel_id")
+        or payload.get("channel", {}).get("id")
+        or "D0807TR5EBC"
     )
+    logger.debug(f"📌 Channel ID: {channel_id}")
 
     if not channel_id:
-        print("Unable to retrieve channel ID from payload or body")
+        logger.error("❌ Unable to retrieve channel ID")
+        print("❌ Unable to retrieve channel ID")
         return
 
-    # Fetch deals and construct a formatted message
-    deals = utility.get_recent_deals_by_type(utility.DEAL_TYPE, utility.DAYS, utility.owners_map)
-    sorted_deals = sorted(deals, key=lambda deal: deal['properties'].get('createdate', 'N/A'), reverse=True)
-    if not deals:
-        message = "No new deals found in the last 7 days."
-    else:
-        # Start with the header
-        message = "New Deals Report (Last 7 Days)\n-------------\n"
-
-        # Add details for each deal
-        for deal in sorted_deals:
-            deal_name = deal['properties'].get('dealname', 'N/A').replace(",", " ")
-            amount = deal['properties'].get('amount', 'N/A')
-            owner_id = deal['properties'].get('hubspot_owner_id', 'N/A')
-            deal_owner = utility.owners_map.get(owner_id, "Unknown Owner").replace(",", " ")
-            deal_source_1 = deal['properties'].get('deal_source_1', 'N/A') or 'N/A'
-            deal_source_1 = deal_source_1.replace(",", " ")
-            deal_source_2 = deal['properties'].get('deal_source_2', 'N/A') or 'N/A'
-            deal_source_2 = deal_source_2.replace(",", " ")
-            created_at = deal['properties'].get('createdate', 'N/A')
-            created_at = created_at.split("T")[0] if "T" in created_at else created_at
-
-            # Add deal details
-            message += (
-                f"Name: {deal_name}\n"
-                f"Amount: {amount}\n"
-                f"Owner: {deal_owner}\n"
-                f"Source 1: {deal_source_1}\n"
-                f"Source 2: {deal_source_2}\n"
-                f"Created: {created_at}\n"
-                "-------------\n"
-            )
-
-    # Wrap the message in triple backticks for a code block
-    message_blob = f"```\n{message.strip()}\n```"
-
-    # Post the formatted content to Slack
+    # Fetch deals
     try:
-        client.chat_postMessage(
-            channel=channel_id,
-            text="Here are the new deals added in the last 7 days:",
-            blocks=[
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": message_blob}
-                }
-            ]
-        )
-        logger.info(
-            "Successfully used handle_view_deals_details function",
-            extra={"channel_id": channel_id, "level": "INFO"}
-        )
+        deals = utility.get_recent_deals_by_type(utility.DEAL_TYPE, utility.DAYS, utility.owners_map)
+        logger.debug(f"📊 Retrieved {len(deals)} deals")
     except Exception as e:
-        print("Failed to post message to Slack:", str(e))
+        logger.error(f"❌ Error fetching deals: {str(e)}")
+        return
 
+    # Build the message (Keeping your format)
+    message = "New Deals Report (Last 7 Days)\n-------------\n"
+
+    for deal in deals:
+        deal_name = deal['properties'].get('dealname', 'N/A').replace(",", " ")
+        amount = deal['properties'].get('amount', 'N/A')
+        owner_id = deal['properties'].get('hubspot_owner_id', 'N/A')
+        deal_owner = utility.owners_map.get(owner_id, "Unknown Owner").replace(",", " ")
+        deal_source_1 = deal['properties'].get('deal_source_1', 'N/A') or 'N/A'
+        deal_source_2 = deal['properties'].get('deal_source_2', 'N/A') or 'N/A'
+        created_at = deal['properties'].get('createdate', 'N/A')
+        created_at = created_at.split("T")[0] if "T" in created_at else created_at
+
+        message += (
+            f"Name: {deal_name}\n"
+            f"Amount: {amount}\n"
+            f"Owner: {deal_owner}\n"
+            f"Source 1: {deal_source_1}\n"
+            f"Source 2: {deal_source_2}\n"
+            f"Created: {created_at}\n"
+            "-------------\n"
+        )
+
+    # Split the message into chunks (max 2900 characters per part)
+    message_chunks = chunk_text(message)
+
+    try:
+        for idx, chunk in enumerate(message_chunks):
+            client.chat_postMessage(
+                channel=channel_id,
+                text=f"Here are the new deals added in the last 7 days (Part {idx + 1}):",
+                blocks=[{"type": "section", "text": {"type": "mrkdwn", "text": chunk}}]
+            )
+            logger.info(f"✅ Sent Part {idx + 1} of deals to Slack")
+            print(f"✅ Sent Part {idx + 1} of deals to Slack")
+    except Exception as e:
+        logger.error(f"❌ Failed to post message to Slack: {str(e)}")
+        print(f"❌ Failed to post message to Slack: {str(e)}")
+
+
+
+
+
+########################################################################################################
+
+@app.event("message")
+def handle_message_events(body, say):
+    """Handles Slack messages and responds with the best answer from FAISS or executes bot commands."""
+    event = body.get("event", {})
+    user_id = event.get("user")
+    text = event.get("text", "").strip().lower()
+
+    logger.info(f"✅ Received message from {user_id}: {text}")
+
+    if not text:
+        logger.warning("⚠️ Received an empty message.")
+        return
+
+    # Handle bot commands first
+    if text == "start":
+        logger.info(f"🚀 Triggering main_menu() for {user_id}")
+        main_menu(event, say, 0)
+        return
+    elif text == "end":
+        logger.info(f"🛑 Triggering abort_action() for {user_id}")
+        abort_action(user_id, event.get("channel"), say, lambda: None)
+        return
+    elif text == "kill":
+        logger.info(f"💀 Triggering kill_server() for {user_id}")
+        kill_server(event)
+        return
+
+    # 🔄 Process normal messages (search FAISS)
+    try:
+        best_answer = None
+        combined_context = ""
+        max_score = -float("inf")
+        max_retrieved_docs = 5  # Number of documents to retrieve from FAISS
+
+        logger.debug("🔍 Searching FAISS indexes...")
+
+        for source, qa_chain in qa_chains.items():
+            try:
+                logger.debug(f"🔎 Querying FAISS index: {source}")
+
+                # 🔹 Invoke LLM to get an answer
+                result = qa_chain.invoke(text)
+                answer = result["result"] if isinstance(result, dict) else result
+                logger.debug(f"📝 {source} response: {answer}")
+
+                # Filter out generic "I don't know" responses
+                if not any(phrase in answer.lower() for phrase in ["i'm sorry", "i don't know", "i don't have"]):
+                    combined_context += f"{answer}\n"
+
+                    # Retrieve supporting documents
+                    docs = qa_chain.retriever.invoke(text, search_kwargs={"k": max_retrieved_docs})
+
+                    if docs:
+                        score = docs[0].metadata.get("score", 0)  # Get score from metadata
+                        if score > max_score:
+                            max_score = score
+                            best_answer = answer
+
+            except BadRequestError as e:
+                if "context_length_exceeded" in str(e):
+                    say("⚠️ *FireflyBot Alert:* Your query is too broad and exceeds the token limit. Try rewording your question.")
+                    return
+                logger.error(f"🚨 OpenAI BadRequestError in {source}: {str(e)}")
+
+            except Exception as e:
+                logger.error(f"🚨 Error processing FAISS index {source}: {str(e)}", exc_info=True)
+
+        # 🔹 Token Limit Check - Ensure within Model Context Length
+        max_tokens = 16000  # Keep below model max limit (16385 tokens)
+        text_splitter = TokenTextSplitter(chunk_size=max_tokens, chunk_overlap=0)
+
+        # Select the best answer or fallback to combined context
+        if best_answer:
+            split_text = text_splitter.split_text(best_answer)
+        else:
+            split_text = text_splitter.split_text(combined_context)
+
+        truncated_context = split_text[0] if split_text else ""
+
+        if truncated_context.strip():
+            logger.info(f"✅ Responding with: {truncated_context}")
+            say(f"🧐 *FireflyBot Answer:*\n{truncated_context}\n")
+        else:
+            logger.warning("⚠️ No valid answer found or response too long.")
+            say("⚠️ *FireflyBot Alert:* Your query is too broad and exceeds the token limit. Try elaborating on a more specific question.")
+
+    except Exception as e:
+        logger.error(f"🚨 Unexpected error: {str(e)}", exc_info=True)
+        if "say" in locals():
+            say("⚠️ *FireflyBot Alert:* An error occurred while processing your question.")
 
 ########################################################################################################
 
