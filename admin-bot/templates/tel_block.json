@@ -162,6 +162,9 @@
                 "type": "divider"
             },
             {
+                "type": "divider"
+            },
+            {
                 "dispatch_action": true,
                 "type": "input",
                 "element": {

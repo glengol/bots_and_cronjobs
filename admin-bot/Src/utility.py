@@ -2,6 +2,7 @@
 import json
 import requests
 import logging
+import os
 from config import Vars
 from typing import List, Dict
 from datetime import datetime, timedelta, timezone
@@ -404,7 +405,8 @@ def make_tel_block(
     arr_7_days: [], 
     arr_about_end: [], 
     arr_in_progress: [], 
-    arr_sandbox_last_7_days: []
+    arr_sandbox_last_7_days: [],
+    slack_client=None
 ) -> json:
     """
     Creates the Slack text block that will be posted after configuration is complete.
@@ -458,20 +460,17 @@ def make_tel_block(
         start_two_months_back, end_two_months_back = get_month_date_range(two_months_back_year, two_months_back)
         two_months_back_deals = get_deals_by_month(DEAL_TYPE, start_two_months_back, end_two_months_back, owners_map)
 
-        # If any of the options are empty, return an empty response
-        if not options_7_days or not options_about_end or not options_in_progress or not options_sandbox_last_7_days:
-            return {}
-# Output results
-#        print(f"Deals for current month ({now.strftime('%B')}): {len(current_month_deals)}")
-#        print(f"Deals for last month ({calendar.month_name[last_month]}): {len(last_month_deals)}")
-#        print(f"Deals for two months back ({calendar.month_name[two_months_back]}): {len(two_months_back_deals)}")
-
         # Get counts for each section
         count_7_days = adjusted_count(arr_7_days)
         count_about_end = adjusted_count(arr_about_end)
         count_in_progress = adjusted_count(arr_in_progress)
         count_sandbox_last_7_days = count_unique_account_names()
         count_deals = len(get_recent_deals_by_type(DEAL_TYPE, DAYS, owners_map))
+
+        # Check if required options are available (but don't return early - we still want to show website visitors)
+        if not options_7_days or not options_about_end or not options_in_progress or not options_sandbox_last_7_days:
+            # Log warning but continue to show website visitors section
+            logging.warning("Some required options are empty, but continuing to show website visitors section")
 
 #        print(count_sandbox_last_7_days)
         # Update the 'Started in the last 7 days' section
@@ -518,6 +517,46 @@ def make_tel_block(
             "type": "section",
             "text": {"type": "mrkdwn", "text": f"*Deals created two months back:* *({calendar.month_name[two_months_back]}): {len(two_months_back_deals)}*"},
         }
+        
+        # Insert Website Visitors section before the search section
+        # Find the search section and insert before it
+        search_index = None
+        for i, block in enumerate(data['blocks']):
+            if block.get('type') == 'input' and block.get('element', {}).get('action_id') == 'account_search':
+                search_index = i
+                break
+        
+        if search_index is not None:
+            # Insert website visitors section before search
+            website_visitors_blocks = [
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": ":globe_with_meridians: Website visitors :globe_with_meridians:"}
+                },
+                {
+                    "type": "divider"
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*Visitors last 7 days:* *{get_visitors_last_7_days(slack_client) if slack_client else 0}*"},
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*Visitors last 14 days:* *{get_visitors_last_14_days(slack_client) if slack_client else 0}*"},
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*Visitors last 30 days:* *{get_visitors_last_30_days(slack_client) if slack_client else 0}*"},
+                },
+                {
+                    "type": "divider"
+                }
+            ]
+            
+            # Insert the blocks in reverse order to maintain correct positioning
+            for block in reversed(website_visitors_blocks):
+                data['blocks'].insert(search_index, block)
+        
         return data
 
 def update_block(values: {}) -> json:
@@ -688,3 +727,92 @@ def make_admin_list(s: str) -> {}:
                       for user, value in (element.split(':')
                                           for element in s.split(', ')))
     return dictionary
+
+##########################################################################################################
+# Website Visitors Functions - Count Slack Messages from rb2b-filter bot
+def get_website_visitors_from_slack(client, channel_id: str = None) -> List[Dict]:
+    """
+    Fetches website visitor data by counting messages from rb2b-filter bot in Slack.
+    Returns a list of message records with timestamps.
+    """
+    try:
+        # If no channel ID provided, use the default channel where rb2b-filter bot messages are located
+        if not channel_id:
+            channel_id = "C08N60KMEA2"  # Channel where rb2b-filter bot messages are located
+        
+        # Fetch messages from the channel using the passed client
+        response = client.conversations_history(
+            channel=channel_id,
+            limit=1000  # Get up to 1000 messages
+        )
+        
+        if not response.get('ok'):
+            logging.error(f"Failed to fetch Slack messages: {response.get('error')}")
+            return []
+        
+        messages = response.get('messages', [])
+        visitor_messages = []
+        
+        for message in messages:
+            # Check if the message is from rb2b-filter bot
+            if message.get('username') == 'rb2b-filter':
+                visitor_messages.append({
+                    'timestamp': message.get('ts'),
+                    'text': message.get('text', ''),
+                    'user': message.get('user', ''),
+                    'username': message.get('username', '')
+                })
+        
+        return visitor_messages
+        
+    except Exception as e:
+        logging.error(f"Error fetching website visitors from Slack: {e}")
+        return []
+
+def get_visitors_count_for_period(client, days: int, channel_id: str = None) -> int:
+    """
+    Gets the count of website visitors (rb2b-filter messages) for a specific number of days.
+    
+    Args:
+        client: Slack client instance
+        days (int): Number of days to look back
+        channel_id (str): Slack channel ID to search in
+        
+    Returns:
+        int: Count of visitors in the specified period
+    """
+    try:
+        messages = get_website_visitors_from_slack(client, channel_id)
+        if not messages:
+            return 0
+        
+        cutoff_timestamp = (datetime.now(timezone.utc) - timedelta(days=days)).timestamp()
+        count = 0
+        
+        for message in messages:
+            # Slack timestamps are in seconds since epoch
+            message_timestamp = float(message.get('timestamp', 0))
+            
+            if message_timestamp >= cutoff_timestamp:
+                count += 1
+        
+        return count
+        
+    except Exception as e:
+        logging.error(f"Error counting visitors for {days} days: {e}")
+        return 0
+
+def get_visitors_last_7_days(client, channel_id: str = None) -> int:
+    """Gets visitor count for the last 7 days."""
+    return get_visitors_count_for_period(client, 7, channel_id)
+
+def get_visitors_last_14_days(client, channel_id: str = None) -> int:
+    """Gets visitor count for the last 14 days."""
+    return get_visitors_count_for_period(client, 14, channel_id)
+
+def get_visitors_last_30_days(client, channel_id: str = None) -> int:
+    """Gets visitor count for the last 30 days."""
+    return get_visitors_count_for_period(client, 30, channel_id)
+
+##########################################################################################################
+

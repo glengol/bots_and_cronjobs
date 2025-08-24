@@ -362,7 +362,7 @@ def main_menu(message: {}, say, num: int):
     request_in_progress = response_in_progress.json()
     request_sandbox_last_7_days = sandbox_last_7_days
     
-    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'), sandbox_last_7_days)
+    m = utility.make_tel_block(request_7_days.get('results'), request_about_end.get('results'),request_in_progress.get('results'), sandbox_last_7_days, client)
     if m == {}:  # if no results were returned
         say("No search results found , please try again")
         return
@@ -388,6 +388,7 @@ def handle_block_actions(payload):
         utility.handle_view_sandbox_details(payload)
     elif action_id == "view_deals_details":
         utility.handle_view_deals_details(payload)
+
 
 
 @app.action("view_sandbox_details")
