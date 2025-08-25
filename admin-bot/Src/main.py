@@ -22,12 +22,8 @@ from langchain_community.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from openai import BadRequestError
 
-formatter = jsonlogger.JsonFormatter("%(asctime)s - %(message)s")
-json_handler = logging.StreamHandler()
-json_handler.setFormatter(formatter)
-logger = logging.getLogger('my_json')
-logger.setLevel(logging.INFO)
-logger.addHandler(json_handler)
+# Basic logging configuration
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -325,22 +321,101 @@ def handle_reaction_added_events(ack):
     ack()
 
 def account_search_result(message: {} ,account, say, num: int):
-
-    response = requests.get(variables.return_account,
-                            data={'accountName': account, "num": num})
-    request = response.json()
-    m = utility.make_block(request.get('results'), account)
-    if m == {}:  # if no results were returned
-        say("No search results found , please try again")
-        return
-    say(m)
+    """
+    Executes the account search and returns results.
+    """
+    logger.info(f"🔍 Executing account search for: '{account}' with num: {num}")
+    logger.info(f"📝 Message context: {json.dumps(message, indent=2)}")
+    
+    try:
+        # Log the API endpoint being called
+        logger.info(f"🌐 Calling API endpoint: {variables.return_account}")
+        logger.info(f"📊 Search parameters: accountName='{account}', num={num}")
+        
+        # Make the API request
+        response = requests.get(variables.return_account,
+                                data={'accountName': account, "num": num})
+        
+        logger.info(f"📡 API Response Status: {response.status_code}")
+        logger.info(f"📡 API Response Headers: {dict(response.headers)}")
+        
+        if response.status_code != 200:
+            logger.error(f"❌ API request failed with status {response.status_code}")
+            logger.error(f"❌ Response text: {response.text}")
+            say(f"⚠️ Search failed with status {response.status_code}. Please try again later.")
+            return
+            
+        # Parse the response
+        try:
+            request = response.json()
+            logger.info(f"✅ API response parsed successfully: {json.dumps(request, indent=2)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Failed to parse JSON response: {str(e)}")
+            logger.error(f"❌ Raw response: {response.text}")
+            say("⚠️ Error parsing search results. Please try again.")
+            return
+            
+        # Check if results exist
+        if 'results' not in request:
+            logger.warning("⚠️ No 'results' key found in API response")
+            logger.warning(f"⚠️ Available keys: {list(request.keys())}")
+            say("⚠️ Unexpected response format from search API.")
+            return
+            
+        # Create the Slack block
+        logger.info(f"🔨 Creating Slack block with {len(request.get('results', []))} results")
+        m = utility.make_block(request.get('results'), account)
+        
+        if m == {}:  # if no results were returned
+            logger.info(f"🔍 No search results found for query: '{account}'")
+            say("No search results found, please try again")
+            return
+            
+        logger.info(f"✅ Slack block created successfully: {json.dumps(m, indent=2)}")
+        say(m)
+        logger.info(f"✅ Search results sent to Slack for query: '{account}'")
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"🚨 Network error during account search: {str(e)}", exc_info=True)
+        say("⚠️ Network error occurred while searching. Please check your connection and try again.")
+    except Exception as e:
+        logger.error(f"🚨 Unexpected error in account_search_result: {str(e)}", exc_info=True)
+        say("⚠️ An unexpected error occurred while searching. Please try again.")
 
 @app.action("account_search")
 def handle_some_action(message: {}, ack, body, logger, say):
-    ack()
-    global account
-    account = body['actions'][0]['value'].lower()
-    account_search_result(message, account, say, 0)
+    """
+    Handles the account search action from the Slack interface.
+    This function is triggered when a user types in the search box and submits.
+    """
+    try:
+        # Acknowledge the action
+        ack()
+        
+        # Extract the search value
+        if 'actions' not in body or not body['actions']:
+            say("⚠️ Error: No search action found. Please try again.")
+            return
+            
+        action = body['actions'][0]
+        
+        if 'value' not in action:
+            say("⚠️ Error: No search value found. Please try again.")
+            return
+            
+        global account
+        account = action['value'].lower()
+        
+        # Check if account is empty or just whitespace
+        if not account or account.strip() == "":
+            say("⚠️ Please enter a valid account name to search for.")
+            return
+            
+        account_search_result(message, account, say, 0)
+        
+    except Exception as e:
+        logger.error(f"Error in account_search handler: {str(e)}")
+        say(f"⚠️ An error occurred while processing your search: {str(e)}")
 
 def main_menu(message: {}, say, num: int):
 
@@ -382,12 +457,31 @@ def main_menu(message: {}, say, num: int):
 ########################################################################################################
 @app.event("block_actions")
 def handle_block_actions(payload):
-    action_id = payload['actions'][0]['action_id']
-
-    if action_id == "view_sandbox_details":
-        utility.handle_view_sandbox_details(payload)
-    elif action_id == "view_deals_details":
-        utility.handle_view_deals_details(payload)
+    """
+    Handles all block actions including the account search functionality.
+    """
+    logger.info("🔘 BLOCK_ACTIONS EVENT TRIGGERED")
+    logger.info(f"📝 Payload: {json.dumps(payload, indent=2)}")
+    
+    try:
+        if 'actions' not in payload or not payload['actions']:
+            logger.warning("⚠️ No actions found in block_actions payload")
+            return
+            
+        action_id = payload['actions'][0]['action_id']
+        
+        if action_id == "view_sandbox_details":
+            utility.handle_view_sandbox_details(payload)
+        elif action_id == "view_deals_details":
+            utility.handle_view_deals_details(payload)
+        elif action_id == "account_search":
+            # This should be handled by the @app.action("account_search") decorator
+            pass
+        else:
+            logger.info(f"Unhandled action_id: {action_id}")
+            
+    except Exception as e:
+        logger.error(f"Error in handle_block_actions: {str(e)}")
 
 
 
@@ -534,11 +628,13 @@ def handle_message_events(body, say):
     event = body.get("event", {})
     user_id = event.get("user")
     text = event.get("text", "").strip().lower()
+    channel_id = event.get("channel")
 
-    logger.info(f"✅ Received message from {user_id}: {text}")
+    # IGNORE messages from the website visitors channel - bot should only READ from it, not respond
+    if channel_id == "C08N60KMEA2":
+        return
 
     if not text:
-        logger.warning("⚠️ Received an empty message.")
         return
 
     # Handle bot commands first
@@ -556,6 +652,7 @@ def handle_message_events(body, say):
         return
 
     # 🔄 Process normal messages (search FAISS)
+    logger.info(f"🔍 Processing normal message for search: '{text}'")
     try:
         best_answer = None
         combined_context = ""
@@ -625,7 +722,12 @@ def main():
     """
     main function , starts Slack server connection
     """
-    SocketModeHandler(app, app_token).start()
+    try:
+        SocketModeHandler(app, app_token).start()
+        logger.info("Admin-bot is now running and listening for events!")
+    except Exception as e:
+        logger.error(f"Failed to start SocketModeHandler: {str(e)}")
+        raise
 
 
 if __name__ == "__main__":

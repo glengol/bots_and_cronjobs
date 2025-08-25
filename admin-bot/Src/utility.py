@@ -344,8 +344,6 @@ def parse_account_name(text: str, num: int) -> str:
     return temp
 
 def get_options(arr: []) -> []:
-#    print("get_options called with arr:", arr)
-
     """
     gets all options and puts them in order
     :param arr: All the accounts that were returned from Retool
@@ -367,18 +365,38 @@ def get_options(arr: []) -> []:
         ]
 
     """
+    if not arr:
+        return []
+        
+    if not isinstance(arr, (list, tuple)):
+        return []
+    
     results = []
     try:
         for i in range(0, len(arr)):
             curr_val = f"value-{i}"
-            results.append({'text': {'type': 'plain_text', 'text': arr[i][1]},
-                            'value': curr_val})
-    except TypeError as e:
-        logging.error(f"Failed in get_options() - {e} - Args: {arr}")
-        return
-
-    return results
-
+            
+            # Check if the element has the expected structure
+            if isinstance(arr[i], (list, tuple)) and len(arr[i]) >= 2:
+                text_value = arr[i][1]
+            elif isinstance(arr[i], dict):
+                # Handle case where arr[i] might be a dict
+                text_value = arr[i].get('name', str(arr[i]))
+            else:
+                # Handle case where arr[i] might be a string or other type
+                text_value = str(arr[i])
+            
+            option = {
+                'text': {'type': 'plain_text', 'text': text_value},
+                'value': curr_val
+            }
+            results.append(option)
+            
+        return results
+        
+    except Exception as e:
+        logging.error(f"Error in get_options: {str(e)}")
+        return []
 
 def make_block(arr: [], name: str) -> json:
     """
@@ -387,14 +405,29 @@ def make_block(arr: [], name: str) -> json:
     :param name: The value that was queried to Retool
     :return: returns a json Slack block that will be sent to Slack
     """
-    with open(TEMPLATE_BLOCK, 'r+') as f:
-        data = json.load(f)
-        options = get_options(arr)
-        if len(options) == 0:
-            return {}
-        data['blocks'][0]['text']['text'] = f"*SELECTED VALUE:* *{name}*"
-        data['blocks'][2]['accessory']['options'] = options
-        return data
+    try:
+        with open(TEMPLATE_BLOCK, 'r+') as f:
+            data = json.load(f)
+            
+            options = get_options(arr)
+            
+            if len(options) == 0:
+                return {}
+                
+            data['blocks'][0]['text']['text'] = f"*SELECTED VALUE:* *{name}*"
+            data['blocks'][2]['accessory']['options'] = options
+            
+            return data
+            
+    except FileNotFoundError as e:
+        logging.error(f"Template file not found: {TEMPLATE_BLOCK}")
+        return {}
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse template JSON: {str(e)}")
+        return {}
+    except Exception as e:
+        logging.error(f"Unexpected error in make_block: {str(e)}")
+        return {}
 
 def adjusted_count(arr):
     if not arr or not isinstance(arr[0], (list, str)):  # Check if arr is not empty and arr[0] is list or string
@@ -531,7 +564,7 @@ def make_tel_block(
             website_visitors_blocks = [
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": ":globe_with_meridians: Website visitors :globe_with_meridians:"}
+                    "text": {"type": "mrkdwn", "text": ":globe_with_meridians: Website Visitors (filtered) :globe_with_meridians:"}
                 },
                 {
                     "type": "divider"
@@ -542,11 +575,15 @@ def make_tel_block(
                 },
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"*Visitors last 14 days:* *{get_visitors_last_14_days(slack_client) if slack_client else 0}*"},
+                    "text": {"type": "mrkdwn", "text": f"*Visitors current month ({get_month_name(0)}):* *{get_visitors_current_month(slack_client) if slack_client else 0}*"},
                 },
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"*Visitors last 30 days:* *{get_visitors_last_30_days(slack_client) if slack_client else 0}*"},
+                    "text": {"type": "mrkdwn", "text": f"*Visitors last month ({get_month_name(1)}):* *{get_visitors_last_month(slack_client) if slack_client else 0}*"},
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*Visitors two months back ({get_month_name(2)}):* *{get_visitors_two_months_back(slack_client) if slack_client else 0}*"},
                 },
                 {
                     "type": "divider"
@@ -813,6 +850,112 @@ def get_visitors_last_14_days(client, channel_id: str = None) -> int:
 def get_visitors_last_30_days(client, channel_id: str = None) -> int:
     """Gets visitor count for the last 30 days."""
     return get_visitors_count_for_period(client, 30, channel_id)
+
+def get_visitors_current_month(client, channel_id: str = None) -> int:
+    """Gets visitor count for the current month (from 1st to current day)."""
+    try:
+        messages = get_website_visitors_from_slack(client, channel_id)
+        if not messages:
+            return 0
+        
+        now = datetime.now(timezone.utc)
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        start_timestamp = start_of_month.timestamp()
+        
+        count = 0
+        for message in messages:
+            message_timestamp = float(message.get('timestamp', 0))
+            if message_timestamp >= start_timestamp:
+                count += 1
+        
+        return count
+        
+    except Exception as e:
+        logging.error(f"Error counting visitors for current month: {e}")
+        return 0
+
+def get_visitors_last_month(client, channel_id: str = None) -> int:
+    """Gets visitor count for the last month (full month)."""
+    try:
+        messages = get_website_visitors_from_slack(client, channel_id)
+        if not messages:
+            return 0
+        
+        now = datetime.now(timezone.utc)
+        # Go back to last month
+        if now.month == 1:
+            last_month = now.replace(year=now.year-1, month=12)
+        else:
+            last_month = now.replace(month=now.month-1)
+        
+        start_of_last_month = last_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_of_last_month = (start_of_last_month.replace(month=start_of_last_month.month+1) - timedelta(seconds=1)).timestamp()
+        start_timestamp = start_of_last_month.timestamp()
+        
+        count = 0
+        for message in messages:
+            message_timestamp = float(message.get('timestamp', 0))
+            if start_timestamp <= message_timestamp <= end_of_last_month:
+                count += 1
+        
+        return count
+        
+    except Exception as e:
+        logging.error(f"Error counting visitors for last month: {e}")
+        return 0
+
+def get_visitors_two_months_back(client, channel_id: str = None) -> int:
+    """Gets visitor count for two months back (full month)."""
+    try:
+        messages = get_website_visitors_from_slack(client, channel_id)
+        if not messages:
+            return 0
+        
+        now = datetime.now(timezone.utc)
+        # Go back two months
+        if now.month <= 2:
+            two_months_back = now.replace(year=now.year-1, month=now.month+10)
+        else:
+            two_months_back = now.replace(month=now.month-2)
+        
+        start_of_two_months_back = two_months_back.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_of_two_months_back = (start_of_two_months_back.replace(month=start_of_two_months_back.month+1) - timedelta(seconds=1)).timestamp()
+        start_timestamp = start_of_two_months_back.timestamp()
+        
+        count = 0
+        for message in messages:
+            message_timestamp = float(message.get('timestamp', 0))
+            if start_timestamp <= message_timestamp <= end_of_two_months_back:
+                count += 1
+        
+        return count
+        
+    except Exception as e:
+        logging.error(f"Error counting visitors for two months back: {e}")
+        return 0
+
+def get_month_name(months_ago: int = 0) -> str:
+    """Gets the month name for a given number of months ago."""
+    now = datetime.now(timezone.utc)
+    if months_ago == 0:
+        # Current month
+        return now.strftime("%B")
+    elif months_ago == 1:
+        # Last month
+        if now.month == 1:
+            last_month = now.replace(year=now.year-1, month=12)
+        else:
+            last_month = now.replace(month=now.month-1)
+        return last_month.strftime("%B")
+    elif months_ago == 2:
+        # Two months back
+        if now.month <= 2:
+            two_months_back = now.replace(year=now.year-1, month=now.month+10)
+        else:
+            two_months_back = now.replace(month=now.month-2)
+        return two_months_back.strftime("%B")
+    else:
+        return "Unknown"
 
 ##########################################################################################################
 
