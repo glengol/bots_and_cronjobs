@@ -11,7 +11,7 @@ import calendar
 ENTERPRISE = "ENTERPRISE"
 PREMIUM_TRIAL = "PREMIUM_TRIAL"
 
-PATH_TO_LOCAL_PROJECT="."
+PATH_TO_LOCAL_PROJECT = "."
 
 TEMPLATE_STATE = PATH_TO_LOCAL_PROJECT + "/templates/state.json"
 TEMPLATE_ACTIONS = PATH_TO_LOCAL_PROJECT + "/templates/actions.json"
@@ -19,9 +19,8 @@ TEMPLATE_BUTTONS = PATH_TO_LOCAL_PROJECT + "/templates/buttons.json"
 TEMPLATE_BLOCK = PATH_TO_LOCAL_PROJECT + "/templates/block.json"
 TEMPLATE_TEL_BLOCK = PATH_TO_LOCAL_PROJECT + "/templates/tel_block.json"
 
-
-
 variables = Vars()
+
 ##########################################################################################################
 def get_hubspot_owners():
     """Fetch all HubSpot owners to map owner IDs to names."""
@@ -41,7 +40,7 @@ def get_hubspot_owners():
     return {owner["id"]: owner["firstName"] + " " + owner["lastName"] for owner in owners if "firstName" in owner and "lastName" in owner}
 
 def get_recent_deals_by_type(deal_type, days=7, owners_map=None):
-    """Fetch all deals from HubSpot CRM with a specific deal type and created in the last 'days' days."""
+    """Fetch all deals from HubSpot CRM with a specific deal type and created in the last 'days' days (from yesterday)."""
     headers = {
         "Authorization": f"Bearer {variables.api_key_deals}",
         "Content-Type": "application/json",
@@ -52,8 +51,9 @@ def get_recent_deals_by_type(deal_type, days=7, owners_map=None):
         "archived": "false",
     }
 
-    # Calculate the cutoff datetime
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+    # Calculate the cutoff datetime (7 days from yesterday, not from today)
+    yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+    cutoff_date = yesterday - timedelta(days=days)
 
     deals = []
     has_more = True
@@ -75,8 +75,8 @@ def get_recent_deals_by_type(deal_type, days=7, owners_map=None):
             if created_date:
                 # Convert the ISO 8601 string to a datetime object
                 created_datetime = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
-                # Check if the deal matches the type and is within the last 'days' days
-                if deal.get("properties", {}).get("dealtype") == deal_type and created_datetime >= cutoff_date:
+                # Check if the deal matches the type and is within the last 'days' days from yesterday
+                if deal.get("properties", {}).get("dealtype") == deal_type and cutoff_date <= created_datetime <= yesterday:
                     deals.append(deal)
 
         # Pagination handling
@@ -90,6 +90,7 @@ owners_map = get_hubspot_owners()
 # Deal type to filter
 DEAL_TYPE = "newbusiness"  # Internal ID for New Business
 DAYS = 7  # Last 7 days
+
 ##########################################################################################################
 def get_deals_by_month(deal_type, start_date, end_date, owners_map=None):
     """
@@ -218,15 +219,17 @@ def get_filtered_users(token: str) -> List[Dict]:
 
 def filter_last_seven_days(users: List[Dict]) -> List[Dict]:
     """
-    Filter users created within the last 7 days.
+    Filter users created within the last 7 days (7 days from yesterday).
+    Example: if today is 14.9, last 7 days should be 7.9-13.9
     """
     last_seven_days = []
-    current_date = datetime.now(timezone.utc)
-    seven_days_ago = current_date - timedelta(days=7)
+    # Calculate 7 days from yesterday (not from today)
+    yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+    seven_days_ago = yesterday - timedelta(days=7)
 
     for user in users:
         created_at = datetime.strptime(user['created_at'], '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone.utc)
-        if created_at >= seven_days_ago:
+        if seven_days_ago <= created_at <= yesterday:
             last_seven_days.append(user)
 #            print(last_seven_days)######################################
 #    print(last_seven_days)
@@ -235,7 +238,7 @@ def filter_last_seven_days(users: List[Dict]) -> List[Dict]:
 
 def get_users_created_in_last_seven_days() -> List[Dict]:
     """
-    Retrieves users created in the last 7 days by calling the Auth0 API.
+    Retrieves users created in the last 7 days (from yesterday) by calling the Auth0 API.
     """
     try:
         token = get_management_token()
@@ -287,7 +290,7 @@ def get_options_from_auth0(users: List[Dict]) -> List[Dict]:
 '''
 def count_unique_account_names() -> List[Dict]:
     """
-    Retrieves users created in the last 7 days by calling the Auth0 API.
+    Retrieves users created in the last 7 days (from yesterday) by calling the Auth0 API.
     """
     
     token = get_management_token()
@@ -477,8 +480,10 @@ def make_tel_block(
         current_year = now.year
         current_month = now.month
 
-# Current month range
-        start_current_month, end_current_month = get_month_date_range(current_year, current_month)
+        # Current month range (from 1st until yesterday, not until end of month)
+        yesterday = now - timedelta(days=1)
+        start_current_month = datetime(current_year, current_month, 1, tzinfo=timezone.utc)
+        end_current_month = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
         current_month_deals = get_deals_by_month(DEAL_TYPE, start_current_month, end_current_month, owners_map)
 
 # Last month range
@@ -808,11 +813,11 @@ def get_website_visitors_from_slack(client, channel_id: str = None) -> List[Dict
 
 def get_visitors_count_for_period(client, days: int, channel_id: str = None) -> int:
     """
-    Gets the count of website visitors (rb2b-filter messages) for a specific number of days.
+    Gets the count of website visitors (rb2b-filter messages) for a specific number of days (from yesterday).
     
     Args:
         client: Slack client instance
-        days (int): Number of days to look back
+        days (int): Number of days to look back from yesterday
         channel_id (str): Slack channel ID to search in
         
     Returns:
@@ -823,14 +828,18 @@ def get_visitors_count_for_period(client, days: int, channel_id: str = None) -> 
         if not messages:
             return 0
         
-        cutoff_timestamp = (datetime.now(timezone.utc) - timedelta(days=days)).timestamp()
+        # Calculate period from yesterday (not from today)
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        cutoff_timestamp = (yesterday - timedelta(days=days)).timestamp()
+        yesterday_timestamp = yesterday.timestamp()
+        
         count = 0
         
         for message in messages:
             # Slack timestamps are in seconds since epoch
             message_timestamp = float(message.get('timestamp', 0))
             
-            if message_timestamp >= cutoff_timestamp:
+            if cutoff_timestamp <= message_timestamp <= yesterday_timestamp:
                 count += 1
         
         return count
@@ -840,32 +849,34 @@ def get_visitors_count_for_period(client, days: int, channel_id: str = None) -> 
         return 0
 
 def get_visitors_last_7_days(client, channel_id: str = None) -> int:
-    """Gets visitor count for the last 7 days."""
+    """Gets visitor count for the last 7 days (from yesterday)."""
     return get_visitors_count_for_period(client, 7, channel_id)
 
 def get_visitors_last_14_days(client, channel_id: str = None) -> int:
-    """Gets visitor count for the last 14 days."""
+    """Gets visitor count for the last 14 days (from yesterday)."""
     return get_visitors_count_for_period(client, 14, channel_id)
 
 def get_visitors_last_30_days(client, channel_id: str = None) -> int:
-    """Gets visitor count for the last 30 days."""
+    """Gets visitor count for the last 30 days (from yesterday)."""
     return get_visitors_count_for_period(client, 30, channel_id)
 
 def get_visitors_current_month(client, channel_id: str = None) -> int:
-    """Gets visitor count for the current month (from 1st to current day)."""
+    """Gets visitor count for the current month (from 1st to yesterday)."""
     try:
         messages = get_website_visitors_from_slack(client, channel_id)
         if not messages:
             return 0
         
-        now = datetime.now(timezone.utc)
-        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Calculate from 1st of current month until yesterday (not today)
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        start_of_month = yesterday.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         start_timestamp = start_of_month.timestamp()
+        yesterday_timestamp = yesterday.timestamp()
         
         count = 0
         for message in messages:
             message_timestamp = float(message.get('timestamp', 0))
-            if message_timestamp >= start_timestamp:
+            if start_timestamp <= message_timestamp <= yesterday_timestamp:
                 count += 1
         
         return count

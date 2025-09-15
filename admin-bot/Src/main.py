@@ -26,19 +26,22 @@ from openai import BadRequestError
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-
 variables = config.Vars()
 key = variables.key
 app_token = variables.app_token
+
 # creates an app client
 app = App(token=key)
+
 # parse the account name to use an action on
 client = WebClient(token=key)
 admin_list = utility.make_admin_list(variables.admin_list_var)
+
 # list of users who have a running configuration
 active_list = []
 
-
+####################################################
+# Azure OpenAI Configuration
 ####################################################
 AZURE_API_KEY = variables.AZURE_API_KEY
 AZURE_OPENAI_ENDPOINT = variables.AZURE_OPENAI_ENDPOINT
@@ -52,6 +55,7 @@ FAISS_INDEX_PATHS = {
     "confluence": os.path.join(FAISS_LOCAL_DIR, "faiss_index_confluence"),
     "slack": os.path.join(FAISS_LOCAL_DIR, "faiss_index_slack")
 }
+
 FAISS_METADATA_PATHS = {
     "firefly": os.path.join(FAISS_LOCAL_DIR, "faiss_metadata_firefly.pkl"),
     "confluence": os.path.join(FAISS_LOCAL_DIR, "faiss_metadata_confluence.pkl"),
